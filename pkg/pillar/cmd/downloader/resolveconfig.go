@@ -19,7 +19,7 @@ import (
 
 func runResolveHandler(ctx *downloaderContext, key string, c <-chan Notify) {
 
-	log.Functionf("runResolveHandler starting")
+	log.Infof("runResolveHandler starting")
 
 	max := float64(retryTime)
 	min := max * 0.3
@@ -43,14 +43,14 @@ func runResolveHandler(ctx *downloaderContext, key string, c <-chan Notify) {
 				// XXX stop timer
 			}
 		case <-ticker.C:
-			log.Tracef("runResolveHandler(%s) timer", key)
+			log.Debugf("runResolveHandler(%s) timer", key)
 			rs := lookupResolveStatus(ctx, key)
 			if rs != nil {
 				maybeRetryResolve(ctx, rs)
 			}
 		}
 	}
-	log.Functionf("runResolveHandler(%s) DONE", key)
+	log.Infof("runResolveHandler(%s) DONE", key)
 }
 
 func maybeRetryResolve(ctx *downloaderContext, status *types.ResolveStatus) {
@@ -63,17 +63,17 @@ func maybeRetryResolve(ctx *downloaderContext, status *types.ResolveStatus) {
 	t := time.Now()
 	elapsed := t.Sub(status.ErrorTime)
 	if elapsed < retryTime {
-		log.Functionf("maybeRetryResolve(%s) %d remaining",
+		log.Infof("maybeRetryResolve(%s) %d remaining",
 			status.Key(),
 			(retryTime-elapsed)/time.Second)
 		return
 	}
-	log.Functionf("maybeRetryResolve(%s) after %s at %v",
+	log.Infof("maybeRetryResolve(%s) after %s at %v",
 		status.Key(), status.Error, status.ErrorTime)
 
 	config := lookupResolveConfig(ctx, status.Key())
 	if config == nil {
-		log.Functionf("maybeRetryResolve(%s) no config",
+		log.Infof("maybeRetryResolve(%s) no config",
 			status.Key())
 		return
 	}
@@ -90,20 +90,20 @@ func publishResolveStatus(ctx *downloaderContext,
 	status *types.ResolveStatus) {
 
 	key := status.Key()
-	log.Tracef("publishResolveStatus(%s)", key)
+	log.Debugf("publishResolveStatus(%s)", key)
 	pub := ctx.pubResolveStatus
 	pub.Publish(key, *status)
-	log.Tracef("publishResolveStatus(%s) Done", key)
+	log.Debugf("publishResolveStatus(%s) Done", key)
 }
 
 func unpublishResolveStatus(ctx *downloaderContext,
 	status *types.ResolveStatus) {
 
 	key := status.Key()
-	log.Tracef("unpublishResolveStatus(%s)", key)
+	log.Debugf("unpublishResolveStatus(%s)", key)
 	pub := ctx.pubResolveStatus
 	pub.Unpublish(key)
-	log.Tracef("unpublishResolveStatus(%s) Done", key)
+	log.Debugf("unpublishResolveStatus(%s) Done", key)
 }
 
 func lookupResolveConfig(ctx *downloaderContext, key string) *types.ResolveConfig {
@@ -111,7 +111,7 @@ func lookupResolveConfig(ctx *downloaderContext, key string) *types.ResolveConfi
 	sub := ctx.subResolveConfig
 	c, _ := sub.Get(key)
 	if c == nil {
-		log.Functionf("lookupResolveConfig(%s) not found", key)
+		log.Infof("lookupResolveConfig(%s) not found", key)
 		return nil
 	}
 	config := c.(types.ResolveConfig)
@@ -124,7 +124,7 @@ func lookupResolveStatus(ctx *downloaderContext,
 	pub := ctx.pubResolveStatus
 	c, _ := pub.Get(key)
 	if c == nil {
-		log.Functionf("lookupResolveStatus(%s) not found", key)
+		log.Infof("lookupResolveStatus(%s) not found", key)
 		return nil
 	}
 	status := c.(types.ResolveStatus)
@@ -163,7 +163,7 @@ func resolveTagsToHash(ctx *downloaderContext, rc types.ResolveConfig) {
 		publishResolveStatus(ctx, rs)
 		return
 	}
-	log.Tracef("Found datastore(%s) for %s", rc.DatastoreID.String(), rc.Name)
+	log.Debugf("Found datastore(%s) for %s", rc.DatastoreID.String(), rc.Name)
 
 	// construct the datastore context
 	dsCtx, err := constructDatastoreContext(ctx, rc.Name, false, *dst)
@@ -174,17 +174,17 @@ func resolveTagsToHash(ctx *downloaderContext, rc types.ResolveConfig) {
 		return
 	}
 
-	log.Functionf("Resolving config <%s> using %v allow non-free port",
+	log.Infof("Resolving config <%s> using %v allow non-free port",
 		rc.Name, rc.AllowNonFreePort)
 
 	var addrCount int
 	if !rc.AllowNonFreePort {
 		addrCount = types.CountLocalAddrFreeNoLinkLocal(ctx.deviceNetworkStatus)
-		log.Functionf("Have %d free management port addresses", addrCount)
+		log.Infof("Have %d free management port addresses", addrCount)
 		err = errors.New("No free IP management port addresses for download")
 	} else {
 		addrCount = types.CountLocalAddrAnyNoLinkLocal(ctx.deviceNetworkStatus)
-		log.Functionf("Have %d any management port addresses", addrCount)
+		log.Infof("Have %d any management port addresses", addrCount)
 		err = errors.New("No IP management port addresses for download")
 	}
 	if addrCount == 0 {
@@ -239,7 +239,7 @@ func resolveTagsToHash(ctx *downloaderContext, rc types.ResolveConfig) {
 			continue
 		}
 		ifname := types.GetMgmtPortFromAddr(ctx.deviceNetworkStatus, ipSrc)
-		log.Functionf("Using IP source %v if %s transport %v",
+		log.Infof("Using IP source %v if %s transport %v",
 			ipSrc, ifname, dsCtx.TransportMethod)
 
 		sha256, err := objectMetadata(ctx, trType, syncOp, serverURL, auth,

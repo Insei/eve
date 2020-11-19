@@ -31,7 +31,7 @@ func parseConfig(checkpointFile string) (parseResult, error) {
 		return res, err
 	}
 	for i, ct := range cts {
-		log.Tracef("content tree[%d] ctID %s displayName %s relativeURL %s sha256 %s gc %d",
+		log.Debugf("content tree[%d] ctID %s displayName %s relativeURL %s sha256 %s gc %d",
 			i, ct.contentTreeID, ct.displayName, ct.relativeURL,
 			ct.sha256, ct.generationCounter)
 	}
@@ -41,7 +41,7 @@ func parseConfig(checkpointFile string) (parseResult, error) {
 		return res, err
 	}
 	for i, vi := range volumes {
-		log.Tracef("volume[%d] volumeID %s ctID %s imageURL %s sha256 %s gc %d",
+		log.Debugf("volume[%d] volumeID %s ctID %s imageURL %s sha256 %s gc %d",
 			i, vi.volumeID, vi.contentTreeID, vi.imageURL, vi.sha256,
 			vi.generationCounter)
 	}
@@ -51,7 +51,7 @@ func parseConfig(checkpointFile string) (parseResult, error) {
 		return res, err
 	}
 	for i, ai := range appInsts {
-		log.Tracef("app inst[%d] appInstID %s imageID %s imageName %s sha256 %s purgeCounter %d volumeID %s gc %d",
+		log.Debugf("app inst[%d] appInstID %s imageID %s imageName %s sha256 %s purgeCounter %d volumeID %s gc %d",
 			i, ai.appInstID, ai.imageID, ai.imageName, ai.sha256,
 			ai.purgeCounter, ai.volumeID, ai.generationCounter)
 	}
@@ -81,7 +81,7 @@ func parseAppInstances(config *zconfig.EdgeDevConfig) ([]driveAndVolumeRef, erro
 	var appInsts []driveAndVolumeRef
 
 	apps := config.GetApps()
-	log.Tracef("parseAppInstances %d apps", len(apps))
+	log.Debugf("parseAppInstances %d apps", len(apps))
 	for i, cfgApp := range apps {
 		appInstID, _ := uuid.FromString(cfgApp.Uuidandversion.Uuid)
 		drives := cfgApp.GetDrives()
@@ -92,7 +92,7 @@ func parseAppInstances(config *zconfig.EdgeDevConfig) ([]driveAndVolumeRef, erro
 		if cmd != nil {
 			purgeCounter = cmd.Counter
 		}
-		log.Functionf("parseAppInstances[%d] %d drives %d volumeRefs",
+		log.Infof("parseAppInstances[%d] %d drives %d volumeRefs",
 			i, len(drives), len(volumeRefs))
 
 		davr := make([]driveAndVolumeRef, len(drives))
@@ -106,7 +106,7 @@ func parseAppInstances(config *zconfig.EdgeDevConfig) ([]driveAndVolumeRef, erro
 			// Just like zedagent we apply the purgeCounter to the
 			// first disk
 			if i == 0 && purgeCounter != 0 {
-				log.Functionf("parseAppInstances setting purgeCounter to %d  for appInstID %s imageID %s",
+				log.Infof("parseAppInstances setting purgeCounter to %d  for appInstID %s imageID %s",
 					purgeCounter, appInstID, imageID)
 				davr[i].purgeCounter = purgeCounter
 			}
@@ -125,7 +125,7 @@ func parseVolumes(config *zconfig.EdgeDevConfig) ([]volumeInfo, error) {
 
 	var volumes []volumeInfo
 	vols := config.GetVolumes()
-	log.Tracef("parseVolumes %d volumes", len(vols))
+	log.Debugf("parseVolumes %d volumes", len(vols))
 	for _, vol := range vols {
 		volumeID, _ := uuid.FromString(vol.Uuid)
 		vco := vol.GetOrigin()
@@ -146,7 +146,7 @@ func parseContentTrees(config *zconfig.EdgeDevConfig) ([]contentTree, error) {
 
 	var cts []contentTree
 	zcts := config.GetContentInfo()
-	log.Tracef("parseContentTrees %d contentTrees", len(zcts))
+	log.Debugf("parseContentTrees %d contentTrees", len(zcts))
 	for _, zct := range zcts {
 		ctID, _ := uuid.FromString(zct.Uuid)
 		ct := contentTree{
@@ -166,7 +166,7 @@ func (pr parseResult) lookupContentTree(ctID uuid.UUID) *contentTree {
 	for i := range pr.contentTrees {
 		ct := &pr.contentTrees[i]
 		if ct.contentTreeID == ctID {
-			log.Tracef("lookupContentTree found %s", ctID)
+			log.Debugf("lookupContentTree found %s", ctID)
 			return ct
 		}
 	}
@@ -179,7 +179,7 @@ func (pr parseResult) lookupDriveAndVolumeRef(appInstID uuid.UUID, sha256 string
 	for i := range pr.appInsts {
 		dlvr := &pr.appInsts[i]
 		if dlvr.appInstID == appInstID && dlvr.sha256 == sha256 {
-			log.Tracef("lookupAppInst found %s sha %s",
+			log.Debugf("lookupAppInst found %s sha %s",
 				appInstID, sha256)
 			return dlvr
 		}
@@ -198,10 +198,10 @@ func (pr parseResult) lookupVolume(volumeID uuid.UUID, generationCounter int64) 
 		vi := &pr.volumes[i]
 		if vi.volumeID == volumeID {
 			if vi.generationCounter == generationCounter {
-				log.Functionf("lookupVolume found %s#%d",
+				log.Infof("lookupVolume found %s#%d",
 					volumeID, generationCounter)
 			} else {
-				log.Functionf("lookupVolume almost found %s#%d: gc %d",
+				log.Infof("lookupVolume almost found %s#%d: gc %d",
 					volumeID, generationCounter,
 					vi.generationCounter)
 			}

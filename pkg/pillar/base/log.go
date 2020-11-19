@@ -8,21 +8,33 @@ import (
 )
 
 // We map our notions of levels to the logrus levels
-// The Notice, Metric, and Function functions/levels are unique to enable
-// more flexibility during EVE development.
+// XXX should we make this mapping configurable?
+// The Notice and Metric functions/levels are unique
+// XXX should we rename the callers of Info* and Debug* to Debug* and Trace*, respectively
 var (
-	myNoticeLevel   = logrus.InfoLevel
-	myMetricLevel   = logrus.DebugLevel
-	myFunctionLevel = logrus.DebugLevel
+	myNoticeLevel = logrus.InfoLevel
+	myMetricLevel = logrus.DebugLevel
+	myInfoLevel   = logrus.DebugLevel
+	myDebugLevel  = logrus.TraceLevel
+	myTraceLevel  = logrus.TraceLevel
 )
 
-// Function :
-func (object *LogObject) Function(args ...interface{}) {
+// Debug :
+func (object *LogObject) Debug(args ...interface{}) {
 	if !object.Initialized {
 		logrus.Fatal("LogObject used without initialization")
 		return
 	}
-	object.logger.WithFields(object.Fields).Log(myFunctionLevel, args...)
+	object.logger.WithFields(object.Fields).Log(myDebugLevel, args...)
+}
+
+// Info :
+func (object *LogObject) Info(args ...interface{}) {
+	if !object.Initialized {
+		logrus.Fatal("LogObject used without initialization")
+		return
+	}
+	object.logger.WithFields(object.Fields).Log(myInfoLevel, args...)
 }
 
 // Warn :
@@ -70,13 +82,22 @@ func (object *LogObject) Fatal(args ...interface{}) {
 	object.logger.WithFields(object.Fields).Fatal(args...)
 }
 
-// Functionf :
-func (object *LogObject) Functionf(format string, args ...interface{}) {
+// Debugf :
+func (object *LogObject) Debugf(format string, args ...interface{}) {
 	if !object.Initialized {
 		logrus.Fatal("LogObject used without initialization")
 		return
 	}
-	object.logger.WithFields(object.Fields).Logf(myFunctionLevel, format, args...)
+	object.logger.WithFields(object.Fields).Logf(myDebugLevel, format, args...)
+}
+
+// Infof :
+func (object *LogObject) Infof(format string, args ...interface{}) {
+	if !object.Initialized {
+		logrus.Fatal("LogObject used without initialization")
+		return
+	}
+	object.logger.WithFields(object.Fields).Logf(myInfoLevel, format, args...)
 }
 
 // Warnf :
@@ -124,13 +145,22 @@ func (object *LogObject) Errorf(format string, args ...interface{}) {
 	object.logger.WithFields(object.Fields).Errorf(format, args...)
 }
 
-// Functionln :
-func (object *LogObject) Functionln(args ...interface{}) {
+// Debugln :
+func (object *LogObject) Debugln(args ...interface{}) {
 	if !object.Initialized {
 		logrus.Fatal("LogObject used without initialization")
 		return
 	}
-	object.logger.WithFields(object.Fields).Logln(myFunctionLevel, args...)
+	object.logger.WithFields(object.Fields).Logln(myDebugLevel, args...)
+}
+
+// Infoln :
+func (object *LogObject) Infoln(args ...interface{}) {
+	if !object.Initialized {
+		logrus.Fatal("LogObject used without initialization")
+		return
+	}
+	object.logger.WithFields(object.Fields).Logln(myInfoLevel, args...)
 }
 
 // Warnln :
@@ -238,7 +268,7 @@ func (object *LogObject) Trace(args ...interface{}) {
 		logrus.Fatal("LogObject used without initialization")
 		return
 	}
-	object.logger.WithFields(object.Fields).Trace(args...)
+	object.logger.WithFields(object.Fields).Log(myTraceLevel, args...)
 }
 
 // Tracef :
@@ -247,7 +277,7 @@ func (object *LogObject) Tracef(format string, args ...interface{}) {
 		logrus.Fatal("LogObject used without initialization")
 		return
 	}
-	object.logger.WithFields(object.Fields).Tracef(format, args...)
+	object.logger.WithFields(object.Fields).Logf(myTraceLevel, format, args...)
 }
 
 // Traceln :
@@ -256,5 +286,5 @@ func (object *LogObject) Traceln(args ...interface{}) {
 		logrus.Fatal("LogObject used without initialization")
 		return
 	}
-	object.logger.WithFields(object.Fields).Traceln(args...)
+	object.logger.WithFields(object.Fields).Logln(myTraceLevel, args...)
 }

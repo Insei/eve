@@ -54,18 +54,33 @@ Make sure that Docker is up and running on your system. On MacOS just start a do
 docker version
 ```
 
-#### Get system dependencies (git, make, qemu, jq)
+#### Get Make
 
-##### On OSX (using [Brew](https://brew.sh/))
+##### Install On OSX (using [Brew](https://brew.sh/))
 
 ```sh
-$ brew install git make jq qemu
+$ brew install make
+```
+
+##### Inatall On Ubuntu
+
+```sh
+$ sudo apt-get install make
+```
+
+#### Get QEMU
+
+##### On OSX using [Brew](https://brew.sh/)
+
+```sh
+$ brew install qemu
 ```
 
 ##### On Ubuntu Linux
 
 ```sh
-$ sudo apt-get install -y git make jq qemu-utils qemu-system-x86 qemu-system-aarch64
+$ sudo apt install qemu-utils # for make live
+$ sudo apt install qemu-system-x86 # for make run
 ```
 
 #### Get Project EVE

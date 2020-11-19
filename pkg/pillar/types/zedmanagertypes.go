@@ -145,11 +145,17 @@ type AppInstanceStatus struct {
 	DisplayName         string
 	DomainName          string // Once booted
 	Activated           bool
-	ActivateInprogress  bool // Needed for cleanup after failure
+	ActivateInprogress  bool     // Needed for cleanup after failure
+	FixedResources      VmConfig // CPU etc
 	VolumeRefStatusList []VolumeRefStatus
+	EIDList             []EIDStatusDetails
 	UnderlayNetworks    []UnderlayNetworkStatus
+	// Copies of config to determine diffs
+	UnderlayNetworkList []UnderlayNetworkConfig
 	BootTime            time.Time
-	IoAdapterList       []IoAdapter // Report what was actually used
+	IoAdapterList       []IoAdapter
+	RestartCmd          AppInstanceOpsCmd
+	PurgeCmd            AppInstanceOpsCmd
 	RestartInprogress   Inprogress
 	PurgeInprogress     Inprogress
 

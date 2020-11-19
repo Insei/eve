@@ -29,16 +29,10 @@ func AddWorkInstall(ctx *baseOsMgrContext, key, ref, target string) {
 		ref:       ref,
 		target:    target,
 	}
-	// Don't fail on errors to make idempotent (Submit returns an error if
+	// Don't check errors to make idempotent (Submit returns an error if
 	// the work was already submitted)
-	done, err := ctx.worker.TrySubmit(worker.Work{Key: key, Kind: workInstall,
-		Description: d})
-	if err != nil {
-		log.Errorf("TrySubmit %s failed: %s", key, err)
-	} else if !done {
-		log.Fatalf("Failed to submit work due to queue length for %s", key)
-	}
-	log.Functionf("AddWorkInstall(%s) done", key)
+	_ = ctx.worker.Submit(worker.Work{Key: key, Kind: workInstall, Description: d})
+	log.Infof("AddWorkInstall(%s) done", key)
 }
 
 // installWorker implementation of work.WorkFunction that installs an image to a particular location
@@ -56,9 +50,9 @@ func installWorker(ctxPtr interface{}, w worker.Work) worker.WorkResult {
 		return result
 	}
 
-	log.Functionf("installWorker to install %s to %s", d.ref, d.target)
+	log.Infof("installWorker to install %s to %s", d.ref, d.target)
 	err := zboot.WriteToPartition(log, d.ref, d.target)
-	log.Functionf("installWorker DONE install %s to %s: err %s",
+	log.Infof("installWorker DONE install %s to %s: err %s",
 		d.ref, d.target, err)
 
 	if err != nil {

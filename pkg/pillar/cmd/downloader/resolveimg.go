@@ -4,26 +4,18 @@
 package downloader
 
 // for function name consistency
-func handleResolveCreate(ctxArg interface{}, key string,
+func handleResolveModify(ctxArg interface{}, key string,
 	configArg interface{}) {
 
-	log.Functionf("handleResolveCreate for %s", key)
-	resHandler.create(ctxArg, key, configArg)
-	log.Functionf("handleResolveCreate for %s, done", key)
-}
-
-func handleResolveModify(ctxArg interface{}, key string,
-	configArg interface{}, oldConfigArg interface{}) {
-
-	log.Functionf("handleResolveModify for %s", key)
-	resHandler.modify(ctxArg, key, configArg, oldConfigArg)
-	log.Functionf("handleResolveModify for %s, done", key)
+	log.Infof("handleResolveModify for %s", key)
+	resHandler.modify(ctxArg, key, configArg)
+	log.Infof("handleResolveModify for %s, done", key)
 }
 
 func handleResolveDelete(ctxArg interface{}, key string,
 	configArg interface{}) {
 
-	log.Functionf("handleResolveDelete for %s", key)
+	log.Infof("handleResolveDelete for %s", key)
 	resHandler.delete(ctxArg, key, configArg)
-	log.Functionf("handleResolveDelete for %s, done", key)
+	log.Infof("handleResolveDelete for %s, done", key)
 }

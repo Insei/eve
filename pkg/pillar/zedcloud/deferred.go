@@ -67,11 +67,11 @@ func HandleDeferred(zedcloudCtx *ZedCloudContext, event time.Time, spacing time.
 func (ctx *DeferredContext) handleDeferred(log *base.LogObject, event time.Time,
 	spacing time.Duration) bool {
 
-	log.Functionf("HandleDeferred(%v, %v) map %d\n",
+	log.Infof("HandleDeferred(%v, %v) map %d\n",
 		event, spacing, len(ctx.deferredItems))
 	iteration := 0 // Do some load spreading
 	for key, l := range ctx.deferredItems {
-		log.Functionf("Trying to send for %s items %d\n", key, len(l.list))
+		log.Infof("Trying to send for %s items %d\n", key, len(l.list))
 		failed := false
 		for i, item := range l.list {
 			if item.buf == nil {
@@ -82,16 +82,16 @@ func (ctx *DeferredContext) handleDeferred(log *base.LogObject, event time.Time,
 					key)
 				continue
 			}
-			log.Functionf("Trying to send for %s item %d data size %d\n",
+			log.Infof("Trying to send for %s item %d data size %d\n",
 				key, i, item.size)
 			resp, _, _, err := SendOnAllIntf(item.zedcloudCtx, item.url,
 				item.size, item.buf, iteration, item.bailOnHTTPErr)
 			if item.bailOnHTTPErr && resp != nil &&
 				resp.StatusCode >= 400 && resp.StatusCode < 600 {
-				log.Functionf("HandleDeferred: for %s ignore code %d\n",
+				log.Infof("HandleDeferred: for %s ignore code %d\n",
 					key, resp.StatusCode)
 			} else if err != nil {
-				log.Functionf("HandleDeferred: for %s failed %s\n",
+				log.Infof("HandleDeferred: for %s failed %s\n",
 					key, err)
 				failed = true
 				break
@@ -105,7 +105,7 @@ func (ctx *DeferredContext) handleDeferred(log *base.LogObject, event time.Time,
 			iteration += 1
 			// XXX sleeping in main thread
 			if len(ctx.deferredItems) != 0 && spacing != 0 {
-				log.Functionf("HandleDeferred sleeping %v\n",
+				log.Infof("HandleDeferred sleeping %v\n",
 					spacing)
 				time.Sleep(spacing)
 			}
@@ -114,7 +114,7 @@ func (ctx *DeferredContext) handleDeferred(log *base.LogObject, event time.Time,
 	if len(ctx.deferredItems) == 0 {
 		stopTimer(log, ctx)
 	}
-	log.Functionf("HandleDeferred() done map %d\n", len(ctx.deferredItems))
+	log.Infof("HandleDeferred() done map %d\n", len(ctx.deferredItems))
 	return len(ctx.deferredItems) == 0
 }
 
@@ -125,7 +125,7 @@ func HasDeferred(zedcloudCtx *ZedCloudContext, key string) bool {
 
 func (ctx *DeferredContext) hasDeferred(log *base.LogObject, key string) bool {
 
-	log.Tracef("HasDeferred(%s) map %d\n", key, len(ctx.deferredItems))
+	log.Debugf("HasDeferred(%s) map %d\n", key, len(ctx.deferredItems))
 	_, ok := ctx.deferredItems[key]
 	return ok
 }
@@ -137,14 +137,14 @@ func RemoveDeferred(zedcloudCtx *ZedCloudContext, key string) {
 
 func (ctx *DeferredContext) removeDeferred(log *base.LogObject, key string) {
 
-	log.Tracef("RemoveDeferred(%s) map %d\n", key, len(ctx.deferredItems))
+	log.Debugf("RemoveDeferred(%s) map %d\n", key, len(ctx.deferredItems))
 	_, ok := ctx.deferredItems[key]
 	if !ok {
 		// Normal case
-		log.Tracef("removeDeferred: Non-existing key %s\n", key)
+		log.Debugf("removeDeferred: Non-existing key %s\n", key)
 		return
 	}
-	log.Tracef("Deleting key %s\n", key)
+	log.Debugf("Deleting key %s\n", key)
 	delete(ctx.deferredItems, key)
 
 	if len(ctx.deferredItems) == 0 {
@@ -167,16 +167,16 @@ func (ctx *DeferredContext) setDeferred(zedcloudCtx *ZedCloudContext,
 	key string, buf *bytes.Buffer, size int64, url string, bailOnHTTPErr bool) {
 
 	log := zedcloudCtx.log
-	log.Functionf("SetDeferred(%s) size %d map %d\n",
+	log.Infof("SetDeferred(%s) size %d map %d\n",
 		key, size, len(ctx.deferredItems))
 	if len(ctx.deferredItems) == 0 {
 		startTimer(log, ctx)
 	}
 	_, ok := ctx.deferredItems[key]
 	if ok {
-		log.Tracef("Replacing key %s\n", key)
+		log.Debugf("Replacing key %s\n", key)
 	} else {
-		log.Tracef("Adding key %s\n", key)
+		log.Debugf("Adding key %s\n", key)
 	}
 	item := deferredItem{
 		buf:           buf,
@@ -201,16 +201,16 @@ func (ctx *DeferredContext) addDeferred(zedcloudCtx *ZedCloudContext,
 	key string, buf *bytes.Buffer, size int64, url string, bailOnHTTPErr bool) {
 
 	log := zedcloudCtx.log
-	log.Functionf("AddDeferred(%s) size %d map %d\n", key,
+	log.Infof("AddDeferred(%s) size %d map %d\n", key,
 		size, len(ctx.deferredItems))
 	if len(ctx.deferredItems) == 0 {
 		startTimer(log, ctx)
 	}
 	l, ok := ctx.deferredItems[key]
 	if ok {
-		log.Tracef("Appending to key %s have %d\n", key, len(l.list))
+		log.Debugf("Appending to key %s have %d\n", key, len(l.list))
 	} else {
-		log.Tracef("Adding key %s\n", key)
+		log.Debugf("Adding key %s\n", key)
 	}
 	item := deferredItem{
 		buf:           buf,
@@ -226,7 +226,7 @@ func (ctx *DeferredContext) addDeferred(zedcloudCtx *ZedCloudContext,
 // Try every minute backoff to every 15 minutes
 func startTimer(log *base.LogObject, ctx *DeferredContext) {
 
-	log.Functionf("startTimer()\n")
+	log.Infof("startTimer()\n")
 	min := 1 * time.Minute
 	max := 15 * time.Minute
 	ctx.ticker.UpdateExpTicker(min, max, 0.3)
@@ -234,6 +234,6 @@ func startTimer(log *base.LogObject, ctx *DeferredContext) {
 
 func stopTimer(log *base.LogObject, ctx *DeferredContext) {
 
-	log.Functionf("stopTimer()\n")
+	log.Infof("stopTimer()\n")
 	ctx.ticker.UpdateRangeTicker(longTime1, longTime2)
 }

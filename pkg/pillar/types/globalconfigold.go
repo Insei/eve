@@ -8,7 +8,7 @@
 package types
 
 import (
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus" // OK in this old code
 )
 
 // OldGlobalConfig - Legacy version of global config. Kept for upgradeconverter
@@ -234,42 +234,42 @@ var GlobalConfigMinimums = OldGlobalConfig{
 func EnforceGlobalConfigMinimums(newgc OldGlobalConfig) OldGlobalConfig {
 
 	if newgc.ConfigInterval < GlobalConfigMinimums.ConfigInterval {
-		logrus.Warnf("Enforce minimum ConfigInterval received %d; using %d",
+		log.Warnf("Enforce minimum ConfigInterval received %d; using %d",
 			newgc.ConfigInterval, GlobalConfigMinimums.ConfigInterval)
 		newgc.ConfigInterval = GlobalConfigMinimums.ConfigInterval
 	}
 	if newgc.MetricInterval < GlobalConfigMinimums.MetricInterval {
-		logrus.Warnf("Enforce minimum MetricInterval received %d; using %d",
+		log.Warnf("Enforce minimum MetricInterval received %d; using %d",
 			newgc.MetricInterval, GlobalConfigMinimums.MetricInterval)
 		newgc.MetricInterval = GlobalConfigMinimums.MetricInterval
 	}
 	if newgc.ResetIfCloudGoneTime < GlobalConfigMinimums.ResetIfCloudGoneTime {
-		logrus.Warnf("Enforce minimum XXX received %d; using %d",
+		log.Warnf("Enforce minimum XXX received %d; using %d",
 			newgc.ResetIfCloudGoneTime, GlobalConfigMinimums.ResetIfCloudGoneTime)
 		newgc.ResetIfCloudGoneTime = GlobalConfigMinimums.ResetIfCloudGoneTime
 	}
 	if newgc.FallbackIfCloudGoneTime < GlobalConfigMinimums.FallbackIfCloudGoneTime {
-		logrus.Warnf("Enforce minimum FallbackIfCloudGoneTime received %d; using %d",
+		log.Warnf("Enforce minimum FallbackIfCloudGoneTime received %d; using %d",
 			newgc.FallbackIfCloudGoneTime, GlobalConfigMinimums.FallbackIfCloudGoneTime)
 		newgc.FallbackIfCloudGoneTime = GlobalConfigMinimums.FallbackIfCloudGoneTime
 	}
 	if newgc.MintimeUpdateSuccess < GlobalConfigMinimums.MintimeUpdateSuccess {
-		logrus.Warnf("Enforce minimum MintimeUpdateSuccess received %d; using %d",
+		log.Warnf("Enforce minimum MintimeUpdateSuccess received %d; using %d",
 			newgc.MintimeUpdateSuccess, GlobalConfigMinimums.MintimeUpdateSuccess)
 		newgc.MintimeUpdateSuccess = GlobalConfigMinimums.MintimeUpdateSuccess
 	}
 	if newgc.NetworkGeoRedoTime < GlobalConfigMinimums.NetworkGeoRedoTime {
-		logrus.Warnf("Enforce minimum NetworkGeoRedoTime received %d; using %d",
+		log.Warnf("Enforce minimum NetworkGeoRedoTime received %d; using %d",
 			newgc.NetworkGeoRedoTime, GlobalConfigMinimums.NetworkGeoRedoTime)
 		newgc.NetworkGeoRedoTime = GlobalConfigMinimums.NetworkGeoRedoTime
 	}
 	if newgc.NetworkGeoRetryTime < GlobalConfigMinimums.NetworkGeoRetryTime {
-		logrus.Warnf("Enforce minimum NetworkGeoRetryTime received %d; using %d",
+		log.Warnf("Enforce minimum NetworkGeoRetryTime received %d; using %d",
 			newgc.NetworkGeoRetryTime, GlobalConfigMinimums.NetworkGeoRetryTime)
 		newgc.NetworkGeoRetryTime = GlobalConfigMinimums.NetworkGeoRetryTime
 	}
 	if newgc.NetworkTestDuration < GlobalConfigMinimums.NetworkTestDuration {
-		logrus.Warnf("Enforce minimum NetworkTestDuration received %d; using %d",
+		log.Warnf("Enforce minimum NetworkTestDuration received %d; using %d",
 			newgc.NetworkTestDuration, GlobalConfigMinimums.NetworkTestDuration)
 		newgc.NetworkTestDuration = GlobalConfigMinimums.NetworkTestDuration
 	}
@@ -277,38 +277,38 @@ func EnforceGlobalConfigMinimums(newgc OldGlobalConfig) OldGlobalConfig {
 		newgc.NetworkTestInterval = GlobalConfigMinimums.NetworkTestInterval
 	}
 	if newgc.NetworkTestBetterInterval < GlobalConfigMinimums.NetworkTestBetterInterval {
-		logrus.Warnf("Enforce minimum NetworkTestInterval received %d; using %d",
+		log.Warnf("Enforce minimum NetworkTestInterval received %d; using %d",
 			newgc.NetworkTestBetterInterval, GlobalConfigMinimums.NetworkTestBetterInterval)
 		newgc.NetworkTestBetterInterval = GlobalConfigMinimums.NetworkTestBetterInterval
 	}
 
 	if newgc.StaleConfigTime < GlobalConfigMinimums.StaleConfigTime {
-		logrus.Warnf("Enforce minimum StaleConfigTime received %d; using %d",
+		log.Warnf("Enforce minimum StaleConfigTime received %d; using %d",
 			newgc.StaleConfigTime, GlobalConfigMinimums.StaleConfigTime)
 		newgc.StaleConfigTime = GlobalConfigMinimums.StaleConfigTime
 	}
 	if newgc.DownloadGCTime < GlobalConfigMinimums.DownloadGCTime {
-		logrus.Warnf("Enforce minimum DownloadGCTime received %d; using %d",
+		log.Warnf("Enforce minimum DownloadGCTime received %d; using %d",
 			newgc.DownloadGCTime, GlobalConfigMinimums.DownloadGCTime)
 		newgc.DownloadGCTime = GlobalConfigMinimums.DownloadGCTime
 	}
 	if newgc.VdiskGCTime < GlobalConfigMinimums.VdiskGCTime {
-		logrus.Warnf("Enforce minimum VdiskGCTime received %d; using %d",
+		log.Warnf("Enforce minimum VdiskGCTime received %d; using %d",
 			newgc.VdiskGCTime, GlobalConfigMinimums.VdiskGCTime)
 		newgc.VdiskGCTime = GlobalConfigMinimums.VdiskGCTime
 	}
 	if newgc.DownloadRetryTime < GlobalConfigMinimums.DownloadRetryTime {
-		logrus.Warnf("Enforce minimum DownloadRetryTime received %d; using %d",
+		log.Warnf("Enforce minimum DownloadRetryTime received %d; using %d",
 			newgc.DownloadRetryTime, GlobalConfigMinimums.DownloadRetryTime)
 		newgc.DownloadRetryTime = GlobalConfigMinimums.DownloadRetryTime
 	}
 	if newgc.DomainBootRetryTime < GlobalConfigMinimums.DomainBootRetryTime {
-		logrus.Warnf("Enforce minimum DomainBootRetryTime received %d; using %d",
+		log.Warnf("Enforce minimum DomainBootRetryTime received %d; using %d",
 			newgc.DomainBootRetryTime, GlobalConfigMinimums.DomainBootRetryTime)
 		newgc.DomainBootRetryTime = GlobalConfigMinimums.DomainBootRetryTime
 	}
 	if newgc.Dom0MinDiskUsagePercent < GlobalConfigMinimums.Dom0MinDiskUsagePercent {
-		logrus.Warnf("Enforce minimum Dom0MinDiskUsagePercent received %d; using %d",
+		log.Warnf("Enforce minimum Dom0MinDiskUsagePercent received %d; using %d",
 			newgc.Dom0MinDiskUsagePercent, GlobalConfigMinimums.Dom0MinDiskUsagePercent)
 		newgc.Dom0MinDiskUsagePercent = GlobalConfigMinimums.Dom0MinDiskUsagePercent
 	}

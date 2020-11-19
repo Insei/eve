@@ -84,7 +84,7 @@ func (ctx *downloaderContext) registerHandlers(ps *pubsub.PubSub) error {
 	subGlobalConfig, err := ps.NewSubscription(pubsub.SubscriptionOptions{
 		AgentName:     "zedagent",
 		MyAgentName:   agentName,
-		CreateHandler: handleGlobalConfigCreate,
+		CreateHandler: handleGlobalConfigModify,
 		ModifyHandler: handleGlobalConfigModify,
 		DeleteHandler: handleGlobalConfigDelete,
 		WarningTime:   warningTime,
@@ -100,7 +100,7 @@ func (ctx *downloaderContext) registerHandlers(ps *pubsub.PubSub) error {
 	subGlobalConfig.Activate()
 
 	subDeviceNetworkStatus, err := ps.NewSubscription(pubsub.SubscriptionOptions{
-		CreateHandler: handleDNSCreate,
+		CreateHandler: handleDNSModify,
 		ModifyHandler: handleDNSModify,
 		DeleteHandler: handleDNSDelete,
 		WarningTime:   warningTime,
@@ -120,7 +120,7 @@ func (ctx *downloaderContext) registerHandlers(ps *pubsub.PubSub) error {
 	// before any download config. Without DataStore Config,
 	// Image Downloads will run into errors, which requires retries
 	subDatastoreConfig, err := ps.NewSubscription(pubsub.SubscriptionOptions{
-		CreateHandler: handleDatastoreConfigCreate,
+		CreateHandler: handleDatastoreConfigModify,
 		ModifyHandler: handleDatastoreConfigModify,
 		DeleteHandler: handleDatastoreConfigDelete,
 		WarningTime:   warningTime,
@@ -182,7 +182,7 @@ func (ctx *downloaderContext) registerHandlers(ps *pubsub.PubSub) error {
 	subDownloaderConfig.Activate()
 
 	subResolveConfig, err := ps.NewSubscription(pubsub.SubscriptionOptions{
-		CreateHandler: handleResolveCreate,
+		CreateHandler: handleResolveModify,
 		ModifyHandler: handleResolveModify,
 		DeleteHandler: handleResolveDelete,
 		WarningTime:   warningTime,

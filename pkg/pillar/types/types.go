@@ -116,16 +116,9 @@ func (state SwState) ZSwState() info.ZSwState {
 		return info.ZSwState_RESOLVED_TAG
 	case DOWNLOADING:
 		return info.ZSwState_DOWNLOAD_STARTED
-	case DOWNLOADED:
+	case DOWNLOADED, VERIFYING, VERIFIED, LOADING:
 		return info.ZSwState_DOWNLOADED
-	case VERIFYING:
-		return info.ZSwState_VERIFYING
-	case VERIFIED:
-		return info.ZSwState_VERIFIED
-	case LOADING:
-		return info.ZSwState_LOADING
 	case LOADED:
-		// TBD return info.ZSwState_LOADED
 		return info.ZSwState_DELIVERED
 	case CREATING_VOLUME:
 		return info.ZSwState_CREATING_VOLUME
@@ -133,8 +126,9 @@ func (state SwState) ZSwState() info.ZSwState {
 		return info.ZSwState_CREATED_VOLUME
 	case INSTALLED:
 		return info.ZSwState_INSTALLED
+	// XXX We should later have a new proto state that we can map AWAITNETWORK to
 	case AWAITNETWORKINSTANCE:
-		return info.ZSwState_AWAITNETWORKINSTANCE
+		return info.ZSwState_INSTALLED
 	case BOOTING:
 		return info.ZSwState_BOOTING
 	case RUNNING:

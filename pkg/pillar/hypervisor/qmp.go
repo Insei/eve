@@ -3,7 +3,7 @@ package hypervisor
 import (
 	"encoding/json"
 	"github.com/digitalocean/go-qemu/qmp"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"time"
 )
@@ -67,39 +67,39 @@ func getQemuStatus(socket string) (string, error) {
 func qmpEventHandler(listenerSocket, executorSocket string) {
 	monitor, err := qmp.NewSocketMonitor("unix", listenerSocket, sockTimeout)
 	if err != nil {
-		logrus.Errorf("qmpEventHandler: Exception while getting monitor of listenerSocket: %s. %s", listenerSocket, err.Error())
+		log.Errorf("qmpEventHandler: Exception while getting monitor of listenerSocket: %s. %s", listenerSocket, err.Error())
 		return
 	}
 	if err := monitor.Connect(); err != nil {
-		logrus.Errorf("qmpEventHandler: Exception while connecting listenerSocket: %s. %s", listenerSocket, err.Error())
+		log.Errorf("qmpEventHandler: Exception while connecting listenerSocket: %s. %s", listenerSocket, err.Error())
 		return
 	}
 	defer monitor.Disconnect()
 
 	eventChan, err := monitor.Events()
 	if err != nil {
-		logrus.Errorf("qmpEventHandler: Exception while getting event channel from listenerSocket: %s. %s", listenerSocket, err.Error())
+		log.Errorf("qmpEventHandler: Exception while getting event channel from listenerSocket: %s. %s", listenerSocket, err.Error())
 		return
 	}
 	for {
 		if _, err := os.Stat(listenerSocket); err != nil {
-			logrus.Errorf("qmpEventHandler: Exception while accessing listenerSocket: %s. %s", listenerSocket, err.Error())
+			log.Errorf("qmpEventHandler: Exception while accessing listenerSocket: %s. %s", listenerSocket, err.Error())
 			return
 		}
 		select {
 		case event := <-eventChan:
 			switch event.Event {
 			case "SHUTDOWN":
-				logrus.Infof("qmpEventHandler: Received event: %s event details: %v. Calling quit on socket: %s", event.Event, event.Data, executorSocket)
+				log.Infof("qmpEventHandler: Received event: %s event details: %v. Calling quit on socket: %s", event.Event, event.Data, executorSocket)
 				if err := execStop(executorSocket); err != nil {
-					logrus.Errorf("qmpEventHandler: Exception while stopping domain with socket: %s. %s", executorSocket, err.Error())
+					log.Errorf("qmpEventHandler: Exception while stopping domain with socket: %s. %s", executorSocket, err.Error())
 				}
 				if err := execQuit(executorSocket); err != nil {
-					logrus.Errorf("qmpEventHandler: Exception while quitting domain with socket: %s. %s", executorSocket, err.Error())
+					log.Errorf("qmpEventHandler: Exception while quitting domain with socket: %s. %s", executorSocket, err.Error())
 				}
 			default:
 				//Not handling the following events: RESUME, NIC_RX_FILTER_CHANGED, RTC_CHANGE, POWERDOWN, STOP
-				logrus.Debugf("qmpEventHandler: Unhandled event: %s from listenerSocket: %s", event.Event, listenerSocket)
+				log.Debugf("qmpEventHandler: Unhandled event: %s from listenerSocket: %s", event.Event, listenerSocket)
 			}
 		}
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -82,7 +82,7 @@ func Manifest(registry, repo, username, apiKey string, client *http.Client, prgc
 
 // PullBlob downloads a blob from a registry and save it as a file as-is.
 func PullBlob(registry, repo, hash, localFile, username, apiKey string, maxsize int64, client *http.Client, prgchan NotifChan) (int64, string, error) {
-	logrus.Infof("PullBlob(%s, %s, %s) to %s", registry, repo, hash, localFile)
+	log.Infof("PullBlob(%s, %s, %s) to %s", registry, repo, hash, localFile)
 
 	var (
 		w           io.Writer
@@ -113,7 +113,7 @@ func PullBlob(registry, repo, hash, localFile, username, apiKey string, maxsize 
 	if hash != "" {
 		hash = checkAndCorrectHash(hash)
 		if _, ok := ref.(name.Tag); ok {
-			logrus.Infof("PullBlob: Adding hash %s to image %s", hash, image)
+			log.Infof("PullBlob: Adding hash %s to image %s", hash, image)
 			image = fmt.Sprintf("%s@%s", image, hash)
 			ref, err = name.ParseReference(image)
 			if err != nil {
@@ -133,7 +133,7 @@ func PullBlob(registry, repo, hash, localFile, username, apiKey string, maxsize 
 
 	// if we have only a tag, we know it is a manifest
 	if _, ok := ref.(name.Tag); ok {
-		logrus.Infof("PullBlob: requested manifest or had tag without hash, so just pulling root for %s", image)
+		log.Infof("PullBlob: requested manifest or had tag without hash, so just pulling root for %s", image)
 		r, contentType, err = ociGetManifest(ref, opts)
 		if err != nil {
 			return 0, "", err
@@ -144,7 +144,7 @@ func PullBlob(registry, repo, hash, localFile, username, apiKey string, maxsize 
 		if !ok {
 			return 0, "", fmt.Errorf("ref %s wasn't a tag or digest", image)
 		}
-		logrus.Infof("PullBlob: had hash, so pulling blob for %s", image)
+		log.Infof("PullBlob: had hash, so pulling blob for %s", image)
 		layer, err := remote.Layer(d, opts...)
 		if err != nil {
 			return 0, "", fmt.Errorf("could not pull layer %s: %v", ref.String(), err)
@@ -195,7 +195,7 @@ func PullBlob(registry, repo, hash, localFile, username, apiKey string, maxsize 
 		// copy all of the data
 		size, err := io.Copy(pw, r)
 		if err != nil && err != io.EOF {
-			logrus.Errorf("could not write to local file %s from %s: %v", localFile, ref.String(), err)
+			log.Errorf("could not write to local file %s from %s: %v", localFile, ref.String(), err)
 		}
 		if err == nil {
 			err = io.EOF
@@ -216,10 +216,10 @@ func PullBlob(registry, repo, hash, localFile, username, apiKey string, maxsize 
 		if update.Error != nil {
 			// EOF means we are at the end cleanly
 			if update.Error == io.EOF {
-				logrus.Infof("PullBlob(%s): download complete to %s size %d", image, localFile, size)
+				log.Infof("PullBlob(%s): download complete to %s size %d", image, localFile, size)
 				finalErr = nil
 			} else {
-				logrus.Errorf("PullBlob(%s): error saving to %s: %v", image, localFile, update.Error)
+				log.Errorf("PullBlob(%s): error saving to %s: %v", image, localFile, update.Error)
 				finalErr = update.Error
 			}
 			break
@@ -256,7 +256,7 @@ func Pull(registry, repo, localFile, username, apiKey string, client *http.Clien
 		image                            = fmt.Sprintf("%s/%s", registry, repo)
 	)
 
-	logrus.Infof("Pull(%s, %s) to %s", registry, repo, localFile)
+	log.Infof("Pull(%s, %s) to %s", registry, repo, localFile)
 
 	opts := options(username, apiKey, client)
 

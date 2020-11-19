@@ -26,7 +26,7 @@ func volumeKey(volumeID string, generationCounter int64) string {
 func parseVolumeConfig(ctx *getconfigContext,
 	config *zconfig.EdgeDevConfig) {
 
-	log.Tracef("Started parsing volume config")
+	log.Debugf("Started parsing volume config")
 	cfgVolumeList := config.GetVolumes()
 	h := sha256.New()
 	for _, cfgVolume := range cfgVolumeList {
@@ -36,7 +36,7 @@ func parseVolumeConfig(ctx *getconfigContext,
 	if bytes.Equal(newHash, volumeHash) {
 		return
 	}
-	log.Functionf("parseVolumeConfig: Applying updated config "+
+	log.Infof("parseVolumeConfig: Applying updated config "+
 		"Last Sha: % x, "+
 		"New  Sha: % x, "+
 		"Num of cfgContentInfo: %d",
@@ -57,7 +57,7 @@ func parseVolumeConfig(ctx *getconfigContext,
 		}
 		// content tree not found, delete
 		if !found {
-			log.Functionf("parseVolumeConfig: deleting %s\n", idStr)
+			log.Infof("parseVolumeConfig: deleting %s\n", idStr)
 			unpublishVolumeConfig(ctx, idStr)
 		}
 	}
@@ -82,23 +82,23 @@ func parseVolumeConfig(ctx *getconfigContext,
 		volumeConfig.RefCount = 1
 		publishVolumeConfig(ctx, *volumeConfig)
 	}
-	log.Tracef("parsing volume config done\n")
+	log.Debugf("parsing volume config done\n")
 }
 
 func publishVolumeConfig(ctx *getconfigContext,
 	config types.VolumeConfig) {
 
 	key := config.Key()
-	log.Tracef("publishVolumeConfig(%s)\n", key)
+	log.Debugf("publishVolumeConfig(%s)\n", key)
 	pub := ctx.pubVolumeConfig
 	pub.Publish(key, config)
-	log.Tracef("publishVolumeConfig(%s) done\n", key)
+	log.Debugf("publishVolumeConfig(%s) done\n", key)
 }
 
 func unpublishVolumeConfig(ctx *getconfigContext,
 	key string) {
 
-	log.Tracef("unpublishVolumeConfig(%s)\n", key)
+	log.Debugf("unpublishVolumeConfig(%s)\n", key)
 	pub := ctx.pubVolumeConfig
 	config, _ := pub.Get(key)
 	if config == nil {
@@ -106,23 +106,14 @@ func unpublishVolumeConfig(ctx *getconfigContext,
 		return
 	}
 	pub.Unpublish(key)
-	log.Tracef("unpublishVolumeConfig(%s) done\n", key)
+	log.Debugf("unpublishVolumeConfig(%s) done\n", key)
 }
 
 // volume event watch to capture transitions
 // and publish to zedCloud
-func handleVolumeStatusCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleVolumeStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleVolumeStatusModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleVolumeStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleVolumeStatusImpl(ctxArg interface{}, key string,
-	statusArg interface{}) {
+// Handles both create and modify events
+func handleVolumeStatusModify(ctxArg interface{},
+	key string, statusArg interface{}) {
 
 	status := statusArg.(types.VolumeStatus)
 	ctx := ctxArg.(*zedagentContext)

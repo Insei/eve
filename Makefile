@@ -36,10 +36,6 @@ SSH_KEY=$(CONF_DIR)/ssh.key
 ACCEL=
 # Location of the EVE configuration folder to be used in builds
 CONF_DIR=conf
-# Source of the cloud-init enabled qcow2 Linux VM for all architectures
-BUILD_VM_SRC_arm64=https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img
-BUILD_VM_SRC_amd64=https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
-BUILD_VM_SRC=$(BUILD_VM_SRC_$(ZARCH))
 
 UNAME_S := $(shell uname -s)
 
@@ -91,9 +87,6 @@ TARGET_IMG=$(DIST)/target.img
 INSTALLER=$(DIST)/installer
 INSTALLER_IMG=$(INSTALLER).$(INSTALLER_IMG_FORMAT)
 
-BUILD_VM=$(DIST)/build-vm.qcow2
-BUILD_VM_CLOUD_INIT=$(DIST)/build-vm-ci.qcow2
-
 ROOTFS=$(INSTALLER)/rootfs
 ROOTFS_FULL_NAME=$(INSTALLER)/rootfs-$(ROOTFS_VERSION)
 ROOTFS_IMG=$(ROOTFS).img
@@ -108,9 +101,9 @@ DEVICETREE_DTB_arm64=$(DIST)/dtb/eve.dtb
 DEVICETREE_DTB=$(DEVICETREE_DTB_$(ZARCH))
 
 CONF_FILES=$(shell ls -d $(CONF_DIR)/*)
-PART_SPEC_amd64=efi conf imga
-PART_SPEC_arm64=boot conf imga
-PART_SPEC=$(PART_SPEC_$(ZARCH))
+PART_SPEC_=efi conf imga
+PART_SPEC_rpi=boot conf imga
+PART_SPEC=$(PART_SPEC_$(findstring rpi,$(HV)))
 
 # public cloud settings (only CGP is supported for now)
 # note how GCP doesn't like dots so we replace them with -
@@ -124,13 +117,9 @@ QEMU_SYSTEM_arm64=qemu-system-aarch64
 QEMU_SYSTEM_amd64=qemu-system-x86_64
 QEMU_SYSTEM=$(QEMU_SYSTEM_$(ZARCH))
 
-QEMU_ACCEL_Y_Darwin_amd64=-machine q35,accel=hvf,usb=off -cpu kvm64,kvmclock=off
-QEMU_ACCEL_Y_Linux_amd64=-machine q35,accel=kvm,usb=off,dump-guest-core=off -cpu host,invtsc=on,kvmclock=off -machine kernel-irqchip=split -device intel-iommu,intremap=on,caching-mode=on,aw-bits=48
-# -machine virt,gic_version=3
-QEMU_ACCEL_Y_Linux_arm64=-machine virt,accel=kvm,usb=off,dump-guest-core=off -cpu host
-QEMU_ACCEL__$(shell uname -s)_arm64=-machine virt,virtualization=true -cpu cortex-a57
-QEMU_ACCEL__$(shell uname -s)_amd64=-machine q35 -cpu SandyBridge
-QEMU_ACCEL:=$(QEMU_ACCEL_$(ACCEL:%=Y)_$(shell uname -s)_$(ZARCH))
+QEMU_ACCEL_Y_Darwin=-machine q35,accel=hvf,usb=off -cpu kvm64,kvmclock=off
+QEMU_ACCEL_Y_Linux=-machine q35,accel=kvm,usb=off,dump-guest-core=off -cpu host,invtsc=on,kvmclock=off -machine kernel-irqchip=split -device intel-iommu,intremap=on,caching-mode=on,aw-bits=48
+QEMU_ACCEL:=$(QEMU_ACCEL_$(ACCEL:%=Y)_$(shell uname -s))
 
 QEMU_OPTS_NET1=192.168.1.0/24
 QEMU_OPTS_NET1_FIRST_IP=192.168.1.10
@@ -139,22 +128,20 @@ QEMU_OPTS_NET2_FIRST_IP=192.168.2.10
 
 QEMU_MEMORY:=4096
 
-PFLASH_amd64=y
-PFLASH=$(PFLASH_$(ZARCH))
+PFLASH=y
 QEMU_OPTS_BIOS_y=-drive if=pflash,format=raw,unit=0,readonly,file=$(DIST)/OVMF_CODE.fd -drive if=pflash,format=raw,unit=1,file=$(DIST)/OVMF_VARS.fd
 QEMU_OPTS_BIOS_=-bios $(DIST)/OVMF.fd
 QEMU_OPTS_BIOS=$(QEMU_OPTS_BIOS_$(PFLASH))
 
-QEMU_OPTS_arm64= -drive file=fat:rw:$(dir $(DEVICETREE_DTB)),label=QEMU_DTB,format=vvfat
+QEMU_OPTS_arm64= -machine virt,gic_version=3 -machine virtualization=true -cpu cortex-a57 -machine type=virt -drive file=fat:rw:$(dir $(DEVICETREE_DTB)),label=QEMU_DTB,format=vvfat
+QEMU_OPTS_amd64= -cpu SandyBridge $(QEMU_ACCEL)
 QEMU_OPTS_COMMON= -smbios type=1,serial=31415926 -m $(QEMU_MEMORY) -smp 4 -display none $(QEMU_OPTS_BIOS) \
         -serial mon:stdio      \
         -rtc base=utc,clock=rt \
-        -netdev user,id=eth0,net=$(QEMU_OPTS_NET1),dhcpstart=$(QEMU_OPTS_NET1_FIRST_IP),hostfwd=tcp::$(SSH_PORT)-:22 -device virtio-net-pci,netdev=eth0,romfile="" \
-        -netdev user,id=eth1,net=$(QEMU_OPTS_NET2),dhcpstart=$(QEMU_OPTS_NET2_FIRST_IP) -device virtio-net-pci,netdev=eth1,romfile=""
+        -netdev user,id=eth0,net=$(QEMU_OPTS_NET1),dhcpstart=$(QEMU_OPTS_NET1_FIRST_IP),hostfwd=tcp::$(SSH_PORT)-:22 -device virtio-net-pci,netdev=eth0 \
+        -netdev user,id=eth1,net=$(QEMU_OPTS_NET2),dhcpstart=$(QEMU_OPTS_NET2_FIRST_IP) -device virtio-net-pci,netdev=eth1
 QEMU_OPTS_CONF_PART=$(shell [ -d "$(CONF_PART)" ] && echo '-drive file=fat:rw:$(CONF_PART),format=raw')
-QEMU_OPTS=$(QEMU_OPTS_COMMON) $(QEMU_ACCEL) $(QEMU_OPTS_$(ZARCH)) $(QEMU_OPTS_CONF_PART)
-# -device virtio-blk-device,drive=image -drive if=none,id=image,file=X
-# -device virtio-net-device,netdev=user0 -netdev user,id=user0,hostfwd=tcp::1234-:22
+QEMU_OPTS=$(QEMU_OPTS_COMMON) $(QEMU_OPTS_$(ZARCH)) $(QEMU_OPTS_CONF_PART)
 
 GOOS=linux
 CGO_ENABLED=1
@@ -193,11 +180,7 @@ FORCE_BUILD=--force
 
 ifeq ($(LINUXKIT_PKG_TARGET),push)
   EVE_REL:=$(REPO_TAG)
-  ifeq ($(EVE_REL),snapshot)
-    ifneq ($(REPO_BRANCH),master)
-      EVE_REL=$(REPO_BRANCH)
-    endif
-  else
+  ifneq ($(EVE_REL),snapshot)
     EVE_HASH:=$(EVE_REL)
     EVE_REL:=$(shell [ "`git tag | grep -E '[0-9]*\.[0-9]*\.[0-9]*' | sort -t. -n -k1,1 -k2,2 -k3,3 | tail -1`" = $(EVE_HASH) ] && echo latest)
   endif
@@ -232,24 +215,6 @@ yetus:
 
 build-tools: $(LINUXKIT)
 	@echo Done building $<
-
-$(BUILD_VM_CLOUD_INIT): build-tools/src/scripts/cloud-init.in | $(DIST)
-	@if [ -z "$(BUILD_VM_SSH_PUB_KEY)" ] || [ -z "$(BUILD_VM_GH_TOKEN)" ]; then                  \
-	    echo "Must be run as: make BUILD_VM_SSH_PUB_KEY=XXX BUILD_VM_GH_TOKEN=YYY $@" && exit 1 ;\
-	fi
-	@sed -e 's#@ZARCH@#$(subst amd64,x64,$(ZARCH))#' -e 's#@SSH_PUB_KEY@#$(BUILD_VM_SSH_PUB_KEY)#g'  \
-	     -e 's#@GH_TOKEN@#$(BUILD_VM_GH_TOKEN)#g' < $< | docker run -i alpine:edge sh -c             \
-	          'apk add cloud-utils > /dev/null 2>&1 && cloud-localds --disk-format qcow2 _ - && cat _' > $@
-
-$(BUILD_VM).orig: | $(DIST)
-	@curl -L $(BUILD_VM_SRC) > $@
-
-$(BUILD_VM): $(BUILD_VM_CLOUD_INIT) $(BUILD_VM).orig $(DEVICETREE_DTB) $(BIOS_IMG) | $(DIST)
-	cp $@.orig $@.active
-	# currently a fulle EVE build *almost* fits into 40Gb -- we need twice as much in a VM
-	qemu-img resize $@.active 100G
-	$(QEMU_SYSTEM) $(QEMU_OPTS) -drive format=qcow2,file=$@.active -drive format=qcow2,file=$<
-	mv $@.active $@
 
 $(BIOS_IMG): $(LINUXKIT) | $(DIST)
 	cd $| ; $(DOCKER_UNPACK) $(shell $(LINUXKIT) pkg show-tag pkg/uefi)-$(DOCKER_ARCH_TAG) $(notdir $@)
@@ -302,9 +267,6 @@ run-compose: images/docker-compose.yml images/version.yml
 run-proxy:
 	ssh $(SSH_PROXY) -N -i $(SSH_KEY) -p $(SSH_PORT) -o StrictHostKeyChecking=no -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null root@localhost &
 
-run-build-vm: $(BIOS_IMG) $(DEVICETREE_DTB)
-	$(QEMU_SYSTEM) $(QEMU_OPTS) -drive format=qcow2,file=$(BUILD_VM)
-
 # alternatively (and if you want greater control) you can replace the first command with
 #    gcloud auth activate-service-account --key-file=-
 #    gcloud compute images create $(CLOUD_IMG_NAME) --project=lf-edge-eve
@@ -329,7 +291,6 @@ $(DIST) $(INSTALLER):
 	mkdir -p $@
 
 # convenience targets - so you can do `make config` instead of `make dist/config.img`, and `make installer` instead of `make dist/amd64/installer.img
-build-vm: $(BUILD_VM)
 initrd: $(INITRD_IMG)
 config: $(CONFIG_IMG)
 ssh-key: $(SSH_KEY)
@@ -385,7 +346,7 @@ pkg/qrexec-lib: pkg/xen-tools eve-qrexec-lib
 pkg/%: eve-% FORCE
 	@true
 
-eve: $(BIOS_IMG) $(EFI_PART) $(CONFIG_IMG) $(PERSIST_IMG) $(INITRD_IMG) $(ROOTFS_IMG) $(if $(findstring arm64,$(ZARCH)),$(BOOT_PART)) | $(DIST)
+eve: $(BIOS_IMG) $(EFI_PART) $(CONFIG_IMG) $(PERSIST_IMG) $(INITRD_IMG) $(ROOTFS_IMG) $(if $(findstring rpi,$(HV)),$(BOOT_PART)) | $(DIST)
 	cp pkg/eve/build.yml pkg/eve/runme.sh images/*.yml $|
 	$(PARSE_PKGS) pkg/eve/Dockerfile.in > $|/Dockerfile
 	$(LINUXKIT) pkg $(LINUXKIT_PKG_TARGET) --disable-content-trust --hash-path $(CURDIR) --hash $(ROOTFS_VERSION)-$(HV) $(if $(strip $(EVE_REL)),--release) $(EVE_REL) $(FORCE_BUILD) $|
@@ -527,7 +488,6 @@ help:
 	@echo "all the execution is done via qemu."
 	@echo
 	@echo "Commonly used maintenance and development targets:"
-	@echo "   build-vm       prepare a build VM for EVE in qcow2 format"
 	@echo "   test           run EVE tests"
 	@echo "   clean          clean build artifacts in a current directory (doesn't clean Docker)"
 	@echo "   release        prepare branch for a release (VERSION=x.y.z required)"
@@ -543,7 +503,7 @@ help:
 	@echo "   pkgs           builds all EVE packages"
 	@echo "   pkg/XXX        builds XXX EVE package"
 	@echo "   rootfs         builds default EVE rootfs image (upload it to the cloud as BaseImage)"
-	@echo "   rootfs-XXX     builds a particular kind of EVE rootfs image (xen, kvm)"
+	@echo "   rootfs-XXX     builds a particular kind of EVE rootfs image (xen, kvm, rpi)"
 	@echo "   live           builds a full disk image of EVE which can be function as a virtual device"
 	@echo "   live-XXX       builds a particular kind of EVE live image (raw, qcow2, gcp)"
 	@echo "   installer      builds raw disk installer image (to be installed on bootable media)"
@@ -551,7 +511,6 @@ help:
 	@echo
 	@echo "Commonly used run targets (note they don't automatically rebuild images they run):"
 	@echo "   run-compose       runs all EVE microservices via docker-compose deployment"
-	@echo "   run-build-vm      runs a build VM image"
 	@echo "   run-live          runs a full fledged virtual device on qemu (as close as it gets to actual h/w)"
 	@echo "   run-live-gcp      runs a full fledged virtual device on Google Compute Platform (provide your account details)"
 	@echo "   run-rootfs        runs a rootfs.img (limited usefulness e.g. quick test before cloud upload)"

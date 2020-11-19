@@ -19,10 +19,10 @@ import (
 func createVolume(ctx *volumemgrContext, status types.VolumeStatus) (bool, string, error) {
 
 	if status.IsContainer() {
-		log.Functionf("createVolume(%s) from container %s", status.Key(), status.ReferenceName)
+		log.Infof("createVolume(%s) from container %s", status.Key(), status.ReferenceName)
 		return createContainerVolume(ctx, status, status.ReferenceName)
 	}
-	log.Functionf("createVolume(%s) from disk %s", status.Key(), status.ReferenceName)
+	log.Infof("createVolume(%s) from disk %s", status.Key(), status.ReferenceName)
 	return createVdiskVolume(ctx, status, status.ReferenceName)
 }
 
@@ -72,7 +72,7 @@ func createVdiskVolume(ctx *volumemgrContext, status types.VolumeStatus,
 	}
 	defer f.Close()
 
-	if _, _, err := puller.Pull(registry.FilesTarget{Root: f, AcceptHash: true}, 0, false, os.Stderr, resolver); err != nil {
+	if _, _, err := puller.Pull(registry.FilesTarget{Root: f}, false, os.Stderr, resolver); err != nil {
 		errStr := fmt.Sprintf("error pulling %s from containerd: %v", ref, err)
 		log.Error(errStr)
 		return created, "", errors.New(errStr)
@@ -84,9 +84,9 @@ func createVdiskVolume(ctx *volumemgrContext, status types.VolumeStatus,
 		return created, "", err
 	}
 
-	log.Functionf("Extract DONE from %s to %s", ref, filelocation)
+	log.Infof("Extract DONE from %s to %s", ref, filelocation)
 
-	log.Functionf("createVdiskVolume(%s) DONE", status.Key())
+	log.Infof("createVdiskVolume(%s) DONE", status.Key())
 	return true, filelocation, nil
 }
 
@@ -117,7 +117,7 @@ func createContainerVolume(ctx *volumemgrContext, status types.VolumeStatus,
 		log.Errorf("Failed to create ctr bundle. Error %s", err)
 		return created, filelocation, err
 	}
-	log.Functionf("createContainerVolume(%s) DONE", status.Key())
+	log.Infof("createContainerVolume(%s) DONE", status.Key())
 	return true, filelocation, nil
 }
 
@@ -125,14 +125,14 @@ func createContainerVolume(ctx *volumemgrContext, status types.VolumeStatus,
 // new values for VolumeCreated, FileLocation, and error
 func destroyVolume(ctx *volumemgrContext, status types.VolumeStatus) (bool, string, error) {
 
-	log.Functionf("destroyVolume(%s)", status.Key())
+	log.Infof("destroyVolume(%s)", status.Key())
 	if !status.VolumeCreated {
-		log.Functionf("destroyVolume(%s) nothing was created", status.Key())
+		log.Infof("destroyVolume(%s) nothing was created", status.Key())
 		return false, status.FileLocation, nil
 	}
 
 	if status.ReadOnly {
-		log.Functionf("destroyVolume(%s) ReadOnly", status.Key())
+		log.Infof("destroyVolume(%s) ReadOnly", status.Key())
 		return false, "", nil
 	}
 
@@ -154,7 +154,7 @@ func destroyVdiskVolume(ctx *volumemgrContext, status types.VolumeStatus) (bool,
 
 	created := status.VolumeCreated
 	filelocation := status.FileLocation
-	log.Functionf("Delete copy at %s", filelocation)
+	log.Infof("Delete copy at %s", filelocation)
 	if err := os.RemoveAll(filelocation); err != nil {
 		log.Error(err)
 		filelocation = ""
@@ -162,7 +162,7 @@ func destroyVdiskVolume(ctx *volumemgrContext, status types.VolumeStatus) (bool,
 	}
 	filelocation = ""
 	created = false
-	log.Functionf("destroyVdiskVolume(%s) DONE", status.Key())
+	log.Infof("destroyVdiskVolume(%s) DONE", status.Key())
 	return created, filelocation, nil
 }
 
@@ -172,13 +172,13 @@ func destroyContainerVolume(ctx *volumemgrContext, status types.VolumeStatus) (b
 
 	created := status.VolumeCreated
 	filelocation := status.FileLocation
-	log.Functionf("Removing container volume %s", filelocation)
+	log.Infof("Removing container volume %s", filelocation)
 	if err := ctx.casClient.RemoveContainerRootDir(filelocation); err != nil {
 		return created, filelocation, err
 	}
 	filelocation = ""
 	created = false
-	log.Functionf("destroyContainerVolume(%s) DONE", status.Key())
+	log.Infof("destroyContainerVolume(%s) DONE", status.Key())
 	return created, filelocation, nil
 }
 
@@ -191,7 +191,7 @@ func maybeResizeDisk(diskfile string, maxsizebytes uint64) error {
 	if err != nil {
 		return err
 	}
-	log.Functionf("maybeResizeDisk(%s) current %d to %d",
+	log.Infof("maybeResizeDisk(%s) current %d to %d",
 		diskfile, currentSize, maxsizebytes)
 	if maxsizebytes < currentSize {
 		log.Warnf("maybeResizeDisk(%s) already above maxsize  %d vs. %d",

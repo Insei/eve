@@ -2,4 +2,3 @@
 .*\.go
 .*\.dts
 .*\.md
-^.codespellignorelines

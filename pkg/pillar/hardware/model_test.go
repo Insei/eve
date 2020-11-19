@@ -6,11 +6,11 @@ package hardware
 import (
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 func TestCompatible(t *testing.T) {
-	logrus.Infof("TestCompatible: START\n")
+	log.Infof("TestCompatible: START\n")
 
 	fromProc := []byte("hisilicon,hi6220-hikey\x00hisilicon,hi6220\x00")
 	expected := "hisilicon,hi6220-hikey.hisilicon,hi6220"
@@ -19,5 +19,5 @@ func TestCompatible(t *testing.T) {
 		t.Errorf("Test Failed: Expected %v, Actual: %v\n",
 			expected, actual)
 	}
-	logrus.Infof("TestCompatible: DONE\n")
+	log.Infof("TestCompatible: DONE\n")
 }

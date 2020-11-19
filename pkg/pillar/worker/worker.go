@@ -8,29 +8,26 @@ package worker
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/lf-edge/eve/pkg/pillar/agentlog"
 )
 
-// Logger basic interface to send trace messages
+// Logger basic interface to send debug messages
 type Logger interface {
-	Tracef(format string, args ...interface{})
+	Debugf(format string, args ...interface{})
 }
 
 // Worker captures the worker channels
 type Worker struct {
 	// Private
-	requestChan chan<- Work
-	resultChan  <-chan Processor
-	sync.RWMutex
+	requestChan  chan<- Work
+	resultChan   <-chan Processor
 	requestCount uint // Number of work items submitted
 	resultCount  uint // Number of work results processed
 	workMap      map[string]bool
 	resultMap    map[string]WorkResult
 	handlers     map[string]Handler
-	log          Logger
 }
 
 // Work is one work item
@@ -96,10 +93,9 @@ func NewWorker(log Logger, ctx interface{}, length int, handlers map[string]Hand
 		workMap:     map[string]bool{},
 		resultMap:   map[string]WorkResult{},
 		handlers:    handlers,
-		log:         log,
 	}
 
-	log.Tracef("Creating %s at %s", "w.processWork", agentlog.GetMyStack())
+	log.Debugf("Creating %s at %s", "w.processWork", agentlog.GetMyStack())
 	go w.processWork(log, ctx, requestChan, resultChan)
 	return w
 }
@@ -107,23 +103,14 @@ func NewWorker(log Logger, ctx interface{}, length int, handlers map[string]Hand
 // NumPending returns the number of pending work items
 // Callers should use this to check if it is less than the length specified
 // in NewWorker
-func (w *Worker) NumPending() int {
-	w.RLock()
-	defer w.RUnlock()
+func (w Worker) NumPending() int {
 	return int(w.requestCount) - int(w.resultCount)
-}
-
-// NumResults returns the number of results waiting to be processed.
-func (w *Worker) NumResults() int {
-	w.RLock()
-	defer w.RUnlock()
-	return len(w.resultMap)
 }
 
 // processWork calls the fn for each work until the requestChan is closed
 func (w *Worker) processWork(log Logger, ctx interface{}, requestChan <-chan Work, resultChan chan<- Processor) {
 
-	log.Tracef("processWork starting for context %T", ctx)
+	log.Debugf("processWork starting for context %T", ctx)
 	for work := range requestChan {
 		var result WorkResult
 		// find the correct handler for it
@@ -149,12 +136,12 @@ func (w *Worker) processWork(log Logger, ctx interface{}, requestChan <-chan Wor
 			result: priv,
 		}
 		// no longer pending
-		w.Lock()
-		w.deletePendingLocked(work.Key)
-		w.Unlock()
+		w.deletePending(work.Key)
 	}
+	// XXX if we ever want multiple goroutines for one Worker we
+	// can't close here; would need some wait for all to finish
 	close(resultChan)
-	log.Tracef("processWork done for context %T", ctx)
+	log.Debugf("processWork done for context %T", ctx)
 }
 
 // MsgChan returns a channel to be used in a select loop.
@@ -169,71 +156,35 @@ func (w *Worker) C() <-chan Processor {
 }
 
 // Submit will pass work to the worker.
-// Note that this will wait if the channel is busy hence
-// the user has to pick an appropriate length of the channel for NewWorker
-// Use worker.Pool to avoid such blocking.
+// Note that this will wait if channel is busy, hence
+// user has to pick an appropriate length of the channel and use.
 // returns nil if the new job was submitted, JobInProgressError if a job with that
 // key already ins progress, and other errors if it cannot proceed.
 func (w *Worker) Submit(work Work) error {
-	_, err := w.submitImpl(work, true)
-	return err
-}
-
-// TrySubmit will pass work to the worker if the channel/queue is not full.
-// Returns true if work was submitted, otherwise false.
-// returns JobInProgressError if a job with that key already ins progress
-func (w *Worker) TrySubmit(work Work) (bool, error) {
-	return w.submitImpl(work, false)
-}
-
-func (w *Worker) submitImpl(work Work, wait bool) (bool, error) {
-	done := false
 	// if this Key already exists and is being processed, do nothing
-	w.RLock()
-	if work.Key != "" && w.lookupPendingLocked(work.Key) {
-		w.RUnlock()
-		return done, &JobInProgressError{s: work.Key}
+	if work.Key != "" && w.lookupPending(work.Key) {
+		return &JobInProgressError{s: work.Key}
 	}
 	// Kind must be set to be handleable
 	if work.Kind == "" {
-		w.RUnlock()
-		return done, fmt.Errorf("cannot process a job with a blank Kind")
+		return fmt.Errorf("cannot process a job with a blank Kind")
 	}
 	if _, ok := w.handlers[work.Kind]; !ok {
-		w.RUnlock()
-		return done, fmt.Errorf("no registered handlers for a job of Kind '%s'",
-			work.Kind)
+		return fmt.Errorf("no registered handlers for a job of Kind '%s'", work.Kind)
 	}
-	w.RUnlock()
-	if wait {
-		w.requestChan <- work
-		done = true
-	} else {
-		select {
-		case w.requestChan <- work:
-			done = true
-		default:
-			// Do nothing
-		}
+	w.requestChan <- work
+	w.requestCount++
+	if work.Key != "" {
+		w.addPending(work.Key)
 	}
-	if done {
-		w.Lock()
-		w.requestCount++
-		if work.Key != "" {
-			w.addPendingLocked(work.Key)
-		}
-		w.Unlock()
-	}
-	return done, nil
+	return nil
 }
 
 // Cancel cancels a pending job.
 // It is idempotent, will return no errors if the job is not found,
 // which means it either never was submitted, or it already was processed.
 func (w *Worker) Cancel(key string) {
-	w.Lock()
-	defer w.Unlock()
-	w.deletePendingLocked(key)
+	w.deletePending(key)
 }
 
 // Done will stop the worker
@@ -243,15 +194,9 @@ func (w *Worker) Done() {
 
 // Pop get a result and remove it from the list
 func (w *Worker) Pop(key string) *WorkResult {
-	if key == "" {
-		return nil
-	}
-	// need to lookup up and delete under lock
-	w.Lock()
-	defer w.Unlock()
-	res := w.lookupResultLocked(key)
-	if res != nil {
-		w.deleteResultLocked(key)
+	res := w.Peek(key)
+	if w != nil {
+		w.deleteResult(key)
 	}
 	return res
 }
@@ -261,42 +206,34 @@ func (w *Worker) Peek(key string) *WorkResult {
 	if key == "" {
 		return nil
 	}
-	w.RLock()
-	defer w.RUnlock()
-	return w.lookupResultLocked(key)
+	return w.lookupResult(key)
 }
 
-// lookupPendingLocked assumes caller holds lock
-func (w *Worker) lookupPendingLocked(key string) bool {
+func (w *Worker) lookupPending(key string) bool {
 	res, ok := w.workMap[key]
 	return ok && res
 }
 
-// addPendingLocked assumes caller holds lock
-func (w *Worker) addPendingLocked(key string) {
+func (w *Worker) addPending(key string) {
 	w.workMap[key] = true
 }
 
-// deletePendingLocked assumes caller holds lock
-func (w *Worker) deletePendingLocked(key string) {
+func (w *Worker) deletePending(key string) {
 	delete(w.workMap, key)
 }
 
-//  lookupResultLocked assumes caller holds lock
-func (w *Worker) lookupResultLocked(key string) *WorkResult {
+func (w *Worker) lookupResult(key string) *WorkResult {
 	if res, ok := w.resultMap[key]; ok {
 		return &res
 	}
 	return nil
 }
 
-// addResultLocked assumes caller holds lock
-func (w *Worker) addResultLocked(key string, res WorkResult) {
+func (w *Worker) addResult(key string, res WorkResult) {
 	w.resultMap[key] = res
 }
 
-// deleteResultLocked assumes caller holds lock
-func (w *Worker) deleteResultLocked(key string) {
+func (w *Worker) deleteResult(key string) {
 	delete(w.resultMap, key)
 }
 
@@ -319,12 +256,10 @@ func (p Processor) Process(ctx interface{}, later bool) (err error) {
 		Output:      p.result.output,
 		Description: p.result.description,
 	}
-	w.Lock()
 	w.resultCount++
 	if later {
-		w.addResultLocked(p.result.key, res)
+		w.addResult(p.result.key, res)
 	}
-	w.Unlock()
 	// find the correct handler for it
 	if handler, ok := w.handlers[kind]; ok {
 		if handler.Response == nil {

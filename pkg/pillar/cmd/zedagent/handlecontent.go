@@ -21,7 +21,7 @@ var contentInfoHash []byte
 func parseContentInfoConfig(ctx *getconfigContext,
 	config *zconfig.EdgeDevConfig) {
 
-	log.Tracef("Started parsing content info config")
+	log.Debugf("Started parsing content info config")
 	cfgContentTreeList := config.GetContentInfo()
 	h := sha256.New()
 	for _, cfgContentTree := range cfgContentTreeList {
@@ -31,7 +31,7 @@ func parseContentInfoConfig(ctx *getconfigContext,
 	if bytes.Equal(newHash, contentInfoHash) {
 		return
 	}
-	log.Functionf("parseContentInfo: Applying updated config "+
+	log.Infof("parseContentInfo: Applying updated config "+
 		"Last Sha: % x, "+
 		"New  Sha: % x, "+
 		"Num of cfgContentInfo: %d",
@@ -51,7 +51,7 @@ func parseContentInfoConfig(ctx *getconfigContext,
 		}
 		// content tree not found, delete
 		if !found {
-			log.Functionf("parseContentInfo: deleting %s\n", idStr)
+			log.Infof("parseContentInfo: deleting %s\n", idStr)
 			unpublishContentTreeConfig(ctx, idStr)
 		}
 	}
@@ -68,20 +68,20 @@ func parseContentInfoConfig(ctx *getconfigContext,
 		publishContentTreeConfig(ctx, *contentConfig)
 	}
 	ctx.pubContentTreeConfig.SignalRestarted()
-	log.Functionf("parsing content info config done\n")
+	log.Infof("parsing content info config done\n")
 }
 
 func publishContentTreeConfig(ctx *getconfigContext,
 	config types.ContentTreeConfig) {
 	key := config.Key()
-	log.Tracef("publishContentTreeConfig(%s)\n", key)
+	log.Debugf("publishContentTreeConfig(%s)\n", key)
 	pub := ctx.pubContentTreeConfig
 	pub.Publish(key, config)
-	log.Tracef("publishContentTreeConfig(%s) done\n", key)
+	log.Debugf("publishContentTreeConfig(%s) done\n", key)
 }
 
 func unpublishContentTreeConfig(ctx *getconfigContext, key string) {
-	log.Tracef("unpublishContentTreeConfig(%s)\n", key)
+	log.Debugf("unpublishContentTreeConfig(%s)\n", key)
 	pub := ctx.pubContentTreeConfig
 	config, _ := pub.Get(key)
 	if config == nil {
@@ -89,24 +89,14 @@ func unpublishContentTreeConfig(ctx *getconfigContext, key string) {
 		return
 	}
 	pub.Unpublish(key)
-	log.Tracef("unpublishContentTreeConfig(%s) done\n", key)
+	log.Debugf("unpublishContentTreeConfig(%s) done\n", key)
 }
 
 // content tree event watch to capture transitions
 // and publish to zedCloud
-func handleContentTreeStatusCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleContentTreeStatusImpl(ctxArg, key, statusArg)
-}
-
+// Handles both create and modify events
 func handleContentTreeStatusModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleContentTreeStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleContentTreeStatusImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
-
 	status := statusArg.(types.ContentTreeStatus)
 	ctx := ctxArg.(*zedagentContext)
 	uuidStr := status.Key()

@@ -88,12 +88,12 @@ func TestUnsubscribe(t *testing.T) {
 				t.Fatalf("unable to publish: %v", err)
 			}
 			item1 := item{FieldA: "item1"}
-			log.Functionf("Publishing key1")
+			log.Infof("Publishing key1")
 			pub.Publish("key1", item1)
-			log.Functionf("SignalRestarted")
+			log.Infof("SignalRestarted")
 			pub.SignalRestarted()
 
-			log.Functionf("NewSubscription")
+			log.Infof("NewSubscription")
 			sub, err := ps.NewSubscription(pubsub.SubscriptionOptions{
 				AgentName:  test.agentName,
 				AgentScope: test.agentScope,
@@ -104,41 +104,40 @@ func TestUnsubscribe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unable to subscribe: %v", err)
 			}
-			log.Functionf("Activate")
+			log.Infof("Activate")
 			sub.Activate()
 			// Process subscription to populate
 			for !sub.Synchronized() || !sub.Restarted() {
 				select {
 				case change := <-sub.MsgChan():
-					log.Functionf("ProcessChange")
+					log.Infof("ProcessChange")
 					sub.ProcessChange(change)
 				}
 			}
 			items := sub.GetAll()
 			assert.Equal(t, 1, len(items))
 
-			log.Functionf("sub.Close")
+			log.Infof("sub.Close")
 			sub.Close()
 			assert.Equal(t, 1, len(items))
 
 			for sub.Synchronized() {
 				select {
 				case change := <-sub.MsgChan():
-					log.Functionf("ProcessChange")
+					log.Infof("ProcessChange")
 					sub.ProcessChange(change)
 				}
 			}
 			items = sub.GetAll()
 			assert.Equal(t, 0, len(items))
-			log.Functionf("pub.Close")
+			log.Infof("pub.Close")
 			pub.Close()
-			log.Functionf("Waiting to end test case pub %s", testname)
+			log.Infof("Waiting to end test case pub %s", testname)
 			// Wait for fsnotify to go away
 			time.Sleep(time.Second)
 
 			// Check that goroutines are gone
-			// Sometimes we see a decrease
-			assert.GreaterOrEqual(t, numGoroutines, runtime.NumGoroutine())
+			assert.Equal(t, numGoroutines, runtime.NumGoroutine())
 			if numGoroutines != runtime.NumGoroutine() {
 				t.Logf("All goroutine stacks on entry: %v",
 					origStacks)

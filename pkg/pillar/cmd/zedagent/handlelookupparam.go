@@ -23,14 +23,14 @@ func publishAppNetworkConfig(getconfigCtx *getconfigContext,
 	config types.AppNetworkConfig) {
 
 	key := config.Key()
-	log.Tracef("publishAppNetworkConfig %s", key)
+	log.Debugf("publishAppNetworkConfig %s", key)
 	pub := getconfigCtx.pubAppNetworkConfig
 	pub.Publish(key, config)
 }
 
 func unpublishAppNetworkConfig(getconfigCtx *getconfigContext, key string) {
 
-	log.Tracef("unpublishAppNetworkConfig %s", key)
+	log.Debugf("unpublishAppNetworkConfig %s", key)
 	pub := getconfigCtx.pubAppNetworkConfig
 	c, _ := pub.Get(key)
 	if c == nil {

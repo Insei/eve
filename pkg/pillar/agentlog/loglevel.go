@@ -46,17 +46,17 @@ func getLogLevelImpl(log *base.LogObject, sub pubsub.Subscription, agentName str
 	// Do we have an entry for this agent?
 	loglevel := gc.AgentSettingStringValue(agentName, types.LogLevel)
 	if loglevel != "" {
-		log.Tracef("getLogLevelImpl: loglevel=%s", loglevel)
+		log.Debugf("getLogLevelImpl: loglevel=%s", loglevel)
 		return loglevel, true, false
 	}
 	if !allowDefault {
-		log.Tracef("getLogLevelImpl: loglevel not found. allowDefault False")
+		log.Debugf("getLogLevelImpl: loglevel not found. allowDefault False")
 		return "", false, false
 	}
 	// Agent specific setting  not available. Get it from Global Setting
 	loglevel = gc.GlobalValueString(types.DefaultLogLevel)
 	if loglevel != "" {
-		log.Tracef("getLogLevelImpl: returning DefaultLogLevel (%s)", loglevel)
+		log.Debugf("getLogLevelImpl: returning DefaultLogLevel (%s)", loglevel)
 		return loglevel, true, true
 	}
 	log.Errorf("***getLogLevelImpl: DefaultLogLevel not found. returning info")
@@ -84,17 +84,17 @@ func getRemoteLogLevelImpl(log *base.LogObject, sub pubsub.Subscription, agentNa
 	// Do we have an entry for this agent?
 	loglevel := gc.AgentSettingStringValue(agentName, types.RemoteLogLevel)
 	if loglevel != "" {
-		log.Tracef("getRemoteLogLevelImpl: loglevel=%s", loglevel)
+		log.Debugf("getRemoteLogLevelImpl: loglevel=%s", loglevel)
 		return loglevel, true
 	}
 	if !allowDefault {
-		log.Tracef("getRemoteLogLevelImpl: loglevel not found. allowDefault False")
+		log.Debugf("getRemoteLogLevelImpl: loglevel not found. allowDefault False")
 		return "", false
 	}
 	// Agent specific setting  not available. Get it from Global Setting
 	loglevel = gc.GlobalValueString(types.DefaultRemoteLogLevel)
 	if loglevel != "" {
-		log.Tracef("getRemoteLogLevelImpl: returning DefaultRemoteLogLevel (%s)",
+		log.Debugf("getRemoteLogLevelImpl: returning DefaultRemoteLogLevel (%s)",
 			loglevel)
 		return loglevel, true
 	}
@@ -118,7 +118,7 @@ func LogLevel(gc *types.ConfigItemValueMap, agentName string) string {
 func HandleGlobalConfig(log *base.LogObject, sub pubsub.Subscription, agentName string,
 	debugOverride bool, logger *logrus.Logger) (bool, *types.ConfigItemValueMap) {
 
-	log.Functionf("HandleGlobalConfig(%s, %v)\n", agentName, debugOverride)
+	log.Infof("HandleGlobalConfig(%s, %v)\n", agentName, debugOverride)
 	return handleGlobalConfigImpl(log, sub, agentName, debugOverride, true,
 		logger)
 }
@@ -131,7 +131,7 @@ func HandleGlobalConfig(log *base.LogObject, sub pubsub.Subscription, agentName 
 func HandleGlobalConfigNoDefault(log *base.LogObject, sub pubsub.Subscription, agentName string,
 	debugOverride bool, logger *logrus.Logger) (bool, *types.ConfigItemValueMap) {
 
-	log.Functionf("HandleGlobalConfig(%s, %v)\n", agentName, debugOverride)
+	log.Infof("HandleGlobalConfig(%s, %v)\n", agentName, debugOverride)
 	return handleGlobalConfigImpl(log, sub, agentName, debugOverride, false,
 		logger)
 }
@@ -141,18 +141,18 @@ func handleGlobalConfigImpl(log *base.LogObject, sub pubsub.Subscription, agentN
 	level := logrus.InfoLevel
 	debug := false
 	gcp := GetGlobalConfig(log, sub)
-	log.Functionf("handleGlobalConfigImpl: gcp %+v\n", gcp)
+	log.Infof("handleGlobalConfigImpl: gcp %+v\n", gcp)
 	if debugOverride {
 		debug = true
 		level = logrus.TraceLevel
-		log.Functionf("handleGlobalConfigImpl: debugOverride set. set loglevel to debug")
+		log.Infof("handleGlobalConfigImpl: debugOverride set. set loglevel to debug")
 	} else if loglevel, ok, def := getLogLevelImpl(log, sub, agentName, allowDefault); ok {
 		l, err := logrus.ParseLevel(loglevel)
 		if err != nil {
 			log.Errorf("***ParseLevel %s failed: %s\n", loglevel, err)
 		} else {
 			level = l
-			log.Functionf("HandleGlobalConfigImpl: level %v\n",
+			log.Infof("handleGlobalConfigModify: level %v\n",
 				level)
 		}
 		if level == logrus.TraceLevel {
@@ -165,7 +165,7 @@ func handleGlobalConfigImpl(log *base.LogObject, sub pubsub.Subscription, agentN
 	} else {
 		log.Errorf("***handleGlobalConfigImpl: Failed to get loglevel")
 	}
-	log.Functionf("handleGlobalConfigImpl: Setting loglevel to %s", level)
+	log.Infof("handleGlobalConfigImpl: Setting loglevel to %s", level)
 	logger.SetLevel(level)
 	return debug, gcp
 }

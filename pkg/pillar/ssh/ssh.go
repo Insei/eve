@@ -12,6 +12,7 @@ package ssh
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -25,11 +26,14 @@ const (
 	runDir                   = "/run"
 	baseAuthorizedKeysFile   = types.IdentityDirname + "/authorized_keys"
 	targetAuthorizedKeysFile = runDir + "/authorized_keys"
+
+	// XXX a bit of a hack to hard-code this here
+	sshCommand = `command="ctr --namespace services.linuxkit t exec ${TERM:+-t} --exec-id $(basename $(mktemp)) pillar ${TERM:+env TERM=\"$TERM\"} ${SSH_ORIGINAL_COMMAND:-sh} ${TERM:+-l}"`
 )
 
 func UpdateSshAuthorizedKeys(log *base.LogObject, authorizedKeys string) {
 
-	log.Functionf("UpdateSshAuthorizedKeys: %s", authorizedKeys)
+	log.Infof("UpdateSshAuthorizedKeys: %s", authorizedKeys)
 	tmpfile, err := ioutil.TempFile(runDir, "ak")
 	if err != nil {
 		log.Errorln("TempFile ", err)
@@ -47,7 +51,7 @@ func UpdateSshAuthorizedKeys(log *base.LogObject, authorizedKeys string) {
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
-				log.Traceln(err)
+				log.Debugln(err)
 				if err != io.EOF {
 					log.Errorln("ReadString ", err)
 					return
@@ -61,14 +65,18 @@ func UpdateSshAuthorizedKeys(log *base.LogObject, authorizedKeys string) {
 			if strings.HasPrefix(line, "#") {
 				continue
 			}
-			if _, err = tmpfile.WriteString(line); err != nil {
+			_, err = tmpfile.WriteString(fmt.Sprintf("%s %s\n",
+				sshCommand, line))
+			if err != nil {
 				log.Error(err)
 				return
 			}
 		}
 	}
 	if authorizedKeys != "" {
-		if _, err := tmpfile.WriteString(authorizedKeys); err != nil {
+		_, err := tmpfile.WriteString(fmt.Sprintf("%s %s\n",
+			sshCommand, authorizedKeys))
+		if err != nil {
 			log.Error(err)
 			return
 		}
@@ -84,5 +92,5 @@ func UpdateSshAuthorizedKeys(log *base.LogObject, authorizedKeys string) {
 		log.Errorln(err)
 		return
 	}
-	log.Functionf("UpdateSshAuthorizedKey done")
+	log.Infof("UpdateSshAuthorizedKey done")
 }

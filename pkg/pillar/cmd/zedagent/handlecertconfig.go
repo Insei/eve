@@ -40,7 +40,7 @@ var controllerCertHash []byte
 
 // parse and update controller certs
 func parseControllerCerts(ctx *zedagentContext, contents []byte) {
-	log.Functionf("Started parsing controller certs")
+	log.Infof("Started parsing controller certs")
 	cfgConfig := &zcert.ZControllerCert{}
 	err := proto.Unmarshal(contents, cfgConfig)
 	if err != nil {
@@ -57,7 +57,7 @@ func parseControllerCerts(ctx *zedagentContext, contents []byte) {
 	if bytes.Equal(newHash, controllerCertHash) {
 		return
 	}
-	log.Functionf("parseControllerCerts: Applying updated config "+
+	log.Infof("parseControllerCerts: Applying updated config "+
 		"Last Sha: % x, "+
 		"New  Sha: % x, "+
 		"Num of cfgCert: %d",
@@ -79,7 +79,7 @@ func parseControllerCerts(ctx *zedagentContext, contents []byte) {
 			}
 		}
 		if !found {
-			log.Functionf("parseControllerCerts: deleting %s", config.Key())
+			log.Infof("parseControllerCerts: deleting %s", config.Key())
 			unpublishControllerCert(ctx.getconfigCtx, config.Key())
 		}
 	}
@@ -88,7 +88,7 @@ func parseControllerCerts(ctx *zedagentContext, contents []byte) {
 		certKey := hex.EncodeToString(cfgConfig.GetCertHash())
 		cert := lookupControllerCert(ctx.getconfigCtx, certKey)
 		if cert == nil {
-			log.Functionf("parseControllerCerts: not found %s", certKey)
+			log.Infof("parseControllerCerts: not found %s", certKey)
 			cert = &types.ControllerCert{
 				HashAlgo: cfgConfig.GetHashAlgo(),
 				Type:     cfgConfig.GetType(),
@@ -98,13 +98,13 @@ func parseControllerCerts(ctx *zedagentContext, contents []byte) {
 			publishControllerCert(ctx.getconfigCtx, *cert)
 		}
 	}
-	log.Functionf("parsing controller certs done")
+	log.Infof("parsing controller certs done")
 }
 
 // look up controller cert
 func lookupControllerCert(ctx *getconfigContext,
 	key string) *types.ControllerCert {
-	log.Functionf("lookupControllerCert(%s)", key)
+	log.Infof("lookupControllerCert(%s)", key)
 	pub := ctx.pubControllerCert
 	item, err := pub.Get(key)
 	if err != nil {
@@ -112,7 +112,7 @@ func lookupControllerCert(ctx *getconfigContext,
 		return nil
 	}
 	status := item.(types.ControllerCert)
-	log.Functionf("lookupControllerCert(%s) Done", key)
+	log.Infof("lookupControllerCert(%s) Done", key)
 	return &status
 }
 
@@ -121,41 +121,32 @@ func lookupControllerCert(ctx *getconfigContext,
 func publishControllerCert(ctx *getconfigContext,
 	config types.ControllerCert) {
 	key := config.Key()
-	log.Tracef("publishControllerCert %s", key)
+	log.Debugf("publishControllerCert %s", key)
 	pub := ctx.pubControllerCert
 	pub.Publish(key, config)
-	log.Tracef("publishControllerCert %s Done", key)
+	log.Debugf("publishControllerCert %s Done", key)
 }
 
 func unpublishControllerCert(ctx *getconfigContext, key string) {
-	log.Tracef("unpublishControllerCert %s", key)
+	log.Debugf("unpublishControllerCert %s", key)
 	pub := ctx.pubControllerCert
 	c, _ := pub.Get(key)
 	if c == nil {
 		log.Errorf("unpublishControllerCert(%s) not found", key)
 		return
 	}
-	log.Tracef("unpublishControllerCert %s Done", key)
+	log.Debugf("unpublishControllerCert %s Done", key)
 	pub.Unpublish(key)
 }
 
-func handleEdgeNodeCertCreate(ctxArg interface{}, key string,
-	configArg interface{}) {
-	handleEdgeNodeCertImpl(ctxArg, key, configArg)
-}
-
 func handleEdgeNodeCertModify(ctxArg interface{}, key string,
-	configArg interface{}, oldConfigArg interface{}) {
-	handleEdgeNodeCertImpl(ctxArg, key, configArg)
-}
-
-func handleEdgeNodeCertImpl(ctxArg interface{}, key string,
 	configArg interface{}) {
 
 	ctx := ctxArg.(*zedagentContext)
 	status := configArg.(types.EdgeNodeCert)
-	log.Functionf("handleEdgeNodeCertImpl for %s", status.Key())
+	log.Infof("handleEdgeNodeCertModify for %s", status.Key())
 	triggerEdgeNodeCertEvent(ctx)
+	return
 }
 
 func handleEdgeNodeCertDelete(ctxArg interface{}, key string,
@@ -163,14 +154,15 @@ func handleEdgeNodeCertDelete(ctxArg interface{}, key string,
 
 	ctx := ctxArg.(*zedagentContext)
 	status := configArg.(types.EdgeNodeCert)
-	log.Functionf("handleEdgeNodeCertDelete for %s", status.Key())
+	log.Infof("handleEdgeNodeCertDelete for %s", status.Key())
 	triggerEdgeNodeCertEvent(ctx)
+	return
 }
 
 // Run a task certificate post task, on change trigger
 func controllerCertsTask(ctx *zedagentContext, triggerCerts <-chan struct{}) {
 
-	log.Functionln("starting controller certificate fetch task")
+	log.Infoln("starting controller certificate fetch task")
 	getCertsFromController(ctx)
 
 	wdName := agentName + "ccerts"
@@ -209,13 +201,13 @@ func getCertsFromController(ctx *zedagentContext) bool {
 	if err != nil {
 		switch rtf {
 		case types.SenderStatusUpgrade:
-			log.Functionf("getCertsFromController: Controller upgrade in progress")
+			log.Infof("getCertsFromController: Controller upgrade in progress")
 		case types.SenderStatusRefused:
-			log.Functionf("getCertsFromController: Controller returned ECONNREFUSED")
+			log.Infof("getCertsFromController: Controller returned ECONNREFUSED")
 		case types.SenderStatusCertInvalid:
 			log.Warnf("getCertsFromController: Controller certificate invalid time")
 		case types.SenderStatusCertMiss:
-			log.Functionf("getCertsFromController: Controller certificate miss")
+			log.Infof("getCertsFromController: Controller certificate miss")
 		default:
 			log.Errorf("getCertsFromController failed: %s", err)
 		}
@@ -224,7 +216,7 @@ func getCertsFromController(ctx *zedagentContext) bool {
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		log.Functionf("getCertsFromController: status %s", resp.Status)
+		log.Infof("getCertsFromController: status %s", resp.Status)
 	default:
 		log.Errorf("getCertsFromController: failed, statuscode %d %s",
 			resp.StatusCode, http.StatusText(resp.StatusCode))
@@ -253,13 +245,13 @@ func getCertsFromController(ctx *zedagentContext) bool {
 	// manage the certificates through pubsub
 	parseControllerCerts(ctx, contents)
 
-	log.Functionf("getCertsFromController: success")
+	log.Infof("getCertsFromController: success")
 	return true
 }
 
 // edge node certificate post task, on change trigger
 func edgeNodeCertsTask(ctx *zedagentContext, triggerEdgeNodeCerts chan struct{}) {
-	log.Functionln("starting edge node certificates publish task")
+	log.Infoln("starting edge node certificates publish task")
 
 	publishEdgeNodeCertsToController(ctx)
 
@@ -322,9 +314,9 @@ func publishEdgeNodeCertsToController(ctx *zedagentContext) {
 		attestReq.Certs = append(attestReq.Certs, &certMsg)
 	}
 
-	log.Tracef("publishEdgeNodeCertsToController, sending %s", attestReq)
+	log.Debugf("publishEdgeNodeCertsToController, sending %s", attestReq)
 	sendAttestReqProtobuf(attestReq, ctx.cipherCtx.iteration)
-	log.Tracef("publishEdgeNodeCertsToController: after send, total elapse sec %v",
+	log.Debugf("publishEdgeNodeCertsToController: after send, total elapse sec %v",
 		time.Since(startPubTime).Seconds())
 	ctx.cipherCtx.iteration++
 }
@@ -352,13 +344,13 @@ func sendAttestReqProtobuf(attestReq *attest.ZAttestReq, iteration int) {
 		// Hopefully next timeout will be more successful
 		switch rtf {
 		case types.SenderStatusUpgrade:
-			log.Functionf("sendAttestReqProtobuf: Controller upgrade in progress")
+			log.Infof("sendAttestReqProtobuf: Controller upgrade in progress")
 		case types.SenderStatusRefused:
-			log.Functionf("sendAttestReqProtobuf: Controller returned ECONNREFUSED")
+			log.Infof("sendAttestReqProtobuf: Controller returned ECONNREFUSED")
 		case types.SenderStatusCertInvalid:
 			log.Warnf("sendAttestReqProtobuf: Controller certificate invalid time")
 		case types.SenderStatusCertMiss:
-			log.Functionf("sendAttestReqProtobuf: Controller certificate miss")
+			log.Infof("sendAttestReqProtobuf: Controller certificate miss")
 		default:
 			log.Errorf("sendAttestReqProtobuf failed: %s", err)
 		}
@@ -378,15 +370,15 @@ func cipherModuleInitialize(ctx *zedagentContext, ps *pubsub.PubSub) {
 // start the task threads
 func cipherModuleStart(ctx *zedagentContext) {
 	if !zedcloud.UseV2API() {
-		log.Functionf("V2 APIs are still not enabled")
+		log.Infof("V2 APIs are still not enabled")
 		// we will run the tasks for watchdog
 	}
 	// start the edge node certificate push task
-	log.Functionf("Creating %s at %s", "edgeNodeCertsTask", agentlog.GetMyStack())
+	log.Infof("Creating %s at %s", "edgeNodeCertsTask", agentlog.GetMyStack())
 	go edgeNodeCertsTask(ctx, ctx.cipherCtx.triggerEdgeNodeCerts)
 
 	// start the controller certificate fetch task
-	log.Functionf("Creating %s at %s", "controllerCertsTask", agentlog.GetMyStack())
+	log.Infof("Creating %s at %s", "controllerCertsTask", agentlog.GetMyStack())
 	go controllerCertsTask(ctx, ctx.cipherCtx.triggerControllerCerts)
 }
 
@@ -397,7 +389,7 @@ func handleControllerCertsSha(ctx *zedagentContext,
 
 	certHash := config.GetControllercertConfighash()
 	if certHash != ctx.cipherCtx.cfgControllerCertHash {
-		log.Functionf("handleControllerCertsSha trigger due to controller %v vs current %v",
+		log.Infof("handleControllerCertsSha trigger due to controller %v vs current %v",
 			certHash, ctx.cipherCtx.cfgControllerCertHash)
 		ctx.cipherCtx.cfgControllerCertHash = certHash
 		triggerControllerCertEvent(ctx)
@@ -407,7 +399,7 @@ func handleControllerCertsSha(ctx *zedagentContext,
 //  controller certificate pull trigger function
 func triggerControllerCertEvent(ctxPtr *zedagentContext) {
 
-	log.Function("Trigger for Controller Certs")
+	log.Info("Trigger for Controller Certs")
 	select {
 	case ctxPtr.cipherCtx.triggerControllerCerts <- struct{}{}:
 		// Do nothing more
@@ -419,7 +411,7 @@ func triggerControllerCertEvent(ctxPtr *zedagentContext) {
 //  edge node certificate post trigger function
 func triggerEdgeNodeCertEvent(ctxPtr *zedagentContext) {
 
-	log.Function("Trigger Edge Node Certs publish")
+	log.Info("Trigger Edge Node Certs publish")
 	select {
 	case ctxPtr.cipherCtx.triggerEdgeNodeCerts <- struct{}{}:
 		// Do nothing more

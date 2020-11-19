@@ -11,7 +11,7 @@ import (
 // container images for which resolution of tags to sha requires
 func MaybeAddResolveConfig(ctx *volumemgrContext, cs types.ContentTreeStatus) {
 
-	log.Functionf("MaybeAddResolveConfig for %s", cs.ContentID)
+	log.Infof("MaybeAddResolveConfig for %s", cs.ContentID)
 	resolveConfig := types.ResolveConfig{
 		DatastoreID: cs.DatastoreID,
 		Name:        cs.RelativeURL,
@@ -20,83 +20,73 @@ func MaybeAddResolveConfig(ctx *volumemgrContext, cs types.ContentTreeStatus) {
 		Counter: uint32(cs.GenerationCounter),
 	}
 	publishResolveConfig(ctx, &resolveConfig)
-	log.Functionf("MaybeAddResolveConfig for %s Done", cs.ContentID)
+	log.Infof("MaybeAddResolveConfig for %s Done", cs.ContentID)
 }
 
 func publishResolveConfig(ctx *volumemgrContext,
 	config *types.ResolveConfig) {
 
 	key := config.Key()
-	log.Tracef("publishResolveConfig(%s)", key)
+	log.Debugf("publishResolveConfig(%s)", key)
 	pub := ctx.pubResolveConfig
 	pub.Publish(key, *config)
-	log.Tracef("publishResolveConfig(%s) Done", key)
+	log.Debugf("publishResolveConfig(%s) Done", key)
 }
 
 func unpublishResolveConfig(ctx *volumemgrContext,
 	config *types.ResolveConfig) {
 
 	key := config.Key()
-	log.Tracef("unpublishResolveConfig(%s)", key)
+	log.Debugf("unpublishResolveConfig(%s)", key)
 	pub := ctx.pubResolveConfig
 	pub.Unpublish(key)
-	log.Tracef("unpublishResolveConfig(%s) Done", key)
+	log.Debugf("unpublishResolveConfig(%s) Done", key)
 }
 
 func lookupResolveConfig(ctx *volumemgrContext,
 	key string) *types.ResolveConfig {
 
-	log.Tracef("lookupResolveConfig(%s)", key)
+	log.Debugf("lookupResolveConfig(%s)", key)
 	pub := ctx.pubResolveConfig
 	c, _ := pub.Get(key)
 	if c == nil {
-		log.Tracef("lookupResolveConfig(%s) not found", key)
+		log.Debugf("lookupResolveConfig(%s) not found", key)
 		return nil
 	}
 	config := c.(types.ResolveConfig)
-	log.Tracef("lookupResolveConfig(%s) Done", key)
+	log.Debugf("lookupResolveConfig(%s) Done", key)
 	return &config
 }
 
 func lookupResolveStatus(ctx *volumemgrContext,
 	key string) *types.ResolveStatus {
 
-	log.Tracef("lookupResolveStatus(%s)", key)
+	log.Debugf("lookupResolveStatus(%s)", key)
 	sub := ctx.subResolveStatus
 	c, _ := sub.Get(key)
 	if c == nil {
-		log.Tracef("lookupResolveStatus(%s) not found", key)
+		log.Debugf("lookupResolveStatus(%s) not found", key)
 		return nil
 	}
 	status := c.(types.ResolveStatus)
-	log.Tracef("lookupResolveStatus(%s) Done", key)
+	log.Debugf("lookupResolveStatus(%s) Done", key)
 	return &status
 }
 
 func deleteResolveConfig(ctx *volumemgrContext, key string) {
-	log.Functionf("deleteResolveConfig for %s", key)
+	log.Infof("deleteResolveConfig for %s", key)
 	rc := lookupResolveConfig(ctx, key)
 	if rc != nil {
-		log.Functionf("deleteResolveConfig for %s found", key)
+		log.Infof("deleteResolveConfig for %s found", key)
 		unpublishResolveConfig(ctx, rc)
 	}
-	log.Functionf("deleteResolveConfig for %s Done", key)
-}
-
-func handleResolveStatusCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleResolveStatusImpl(ctxArg, key, statusArg)
+	log.Infof("deleteResolveConfig for %s Done", key)
 }
 
 func handleResolveStatusModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleResolveStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleResolveStatusImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
-	log.Functionf("handleResolveStatusImpl for %s", key)
+	log.Infof("handleResolveStatusModify for %s", key)
 	ctx := ctxArg.(*volumemgrContext)
 	rs := statusArg.(types.ResolveStatus)
 	pub := ctx.pubContentTreeStatus
@@ -108,15 +98,15 @@ func handleResolveStatusImpl(ctxArg interface{}, key string,
 			status.DatastoreID != rs.DatastoreID {
 			continue
 		}
-		log.Functionf("Updating SHA for content tree: %v",
+		log.Infof("Updating SHA for content tree: %v",
 			status.ContentID)
 		changed, _ := doUpdateContentTree(ctx, &status)
 		if changed {
-			log.Functionf("ContentTree(Name:%s, UUID:%s): handleResolveStatusImpl status change.",
+			log.Infof("ContentTree(Name:%s, UUID:%s): handleResolveStatusModify status change.",
 				status.DisplayName, status.ContentID)
 			publishContentTreeStatus(ctx, &status)
 		}
 		updateVolumeStatusFromContentID(ctx, status.ContentID)
 	}
-	log.Functionf("handleResolveStatusImpl done for %s", key)
+	log.Infof("handleResolveStatusModify done for %s", key)
 }

@@ -114,7 +114,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 			log.Fatal(err)
 		}
 	}
-	log.Functionf("Starting %s", agentName)
+	log.Infof("Starting %s", agentName)
 	operations := map[string]bool{
 		"selfRegister": false,
 		"getUuid":      false,
@@ -169,7 +169,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 	subGlobalConfig, err := ps.NewSubscription(pubsub.SubscriptionOptions{
 		AgentName:     "zedagent",
 		MyAgentName:   agentName,
-		CreateHandler: handleGlobalConfigCreate,
+		CreateHandler: handleGlobalConfigModify,
 		ModifyHandler: handleGlobalConfigModify,
 		DeleteHandler: handleGlobalConfigDelete,
 		WarningTime:   warningTime,
@@ -186,7 +186,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 	subGlobalConfig.Activate()
 
 	subDeviceNetworkStatus, err := ps.NewSubscription(pubsub.SubscriptionOptions{
-		CreateHandler: handleDNSCreate,
+		CreateHandler: handleDNSModify,
 		ModifyHandler: handleDNSModify,
 		DeleteHandler: handleDNSDelete,
 		WarningTime:   warningTime,
@@ -211,7 +211,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 	})
 
 	clientCtx.zedcloudCtx = &zedcloudCtx
-	log.Functionf("Client Get Device Serial %s, Soft Serial %s", zedcloudCtx.DevSerial,
+	log.Infof("Client Get Device Serial %s, Soft Serial %s", zedcloudCtx.DevSerial,
 		zedcloudCtx.DevSoftSerial)
 
 	// Run a periodic timer so we always update StillRunning
@@ -280,7 +280,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 	clientCtx.getCertsTimer.Stop()
 
 	for !done {
-		log.Functionf("Waiting for usableAddressCount %d networkState %s and done %v",
+		log.Infof("Waiting for usableAddressCount %d networkState %s and done %v",
 			clientCtx.usableAddressCount, clientCtx.networkState.String(), done)
 		select {
 		case change := <-subGlobalConfig.MsgChan():
@@ -293,7 +293,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 			if clientCtx.networkState != types.DPC_SUCCESS &&
 				clientCtx.networkState != types.DPC_FAIL_WITH_IPANDDNS &&
 				clientCtx.networkState != types.DPC_REMOTE_WAIT {
-				log.Functionf("ticker and networkState %s usableAddressCount %d",
+				log.Infof("ticker and networkState %s usableAddressCount %d",
 					clientCtx.networkState.String(),
 					clientCtx.usableAddressCount)
 				// We keep exponential unchanged
@@ -303,7 +303,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 			// try to fetch the server certs chain first, if it's V2
 			if !gotServerCerts && zedcloudCtx.V2API {
 				gotServerCerts = fetchCertChain(&zedcloudCtx, devtlsConfig, retryCount, true) // XXX always get certs from cloud for now
-				log.Functionf("client fetchCertChain, gotServerCerts %v", gotServerCerts)
+				log.Infof("client fetchCertChain, gotServerCerts %v", gotServerCerts)
 				if !gotServerCerts {
 					break
 				}
@@ -318,7 +318,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 					// Check if getUUid succeeds
 					done, devUUID, hardwaremodel, enterprise, name = doGetUUID(&clientCtx, devtlsConfig, retryCount)
 					if done {
-						log.Functionf("getUUID succeeded; selfRegister no longer needed")
+						log.Infof("getUUID succeeded; selfRegister no longer needed")
 						gotUUID = true
 					}
 				}
@@ -326,11 +326,11 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 			if !gotUUID && operations["getUuid"] {
 				done, devUUID, hardwaremodel, enterprise, name = doGetUUID(&clientCtx, devtlsConfig, retryCount)
 				if done {
-					log.Functionf("getUUID succeeded; selfRegister no longer needed")
+					log.Infof("getUUID succeeded; selfRegister no longer needed")
 					gotUUID = true
 				}
 				if oldUUID != nilUUID && retryCount > 2 {
-					log.Functionf("Sticking with old UUID")
+					log.Infof("Sticking with old UUID")
 					devUUID = oldUUID
 					done = true
 					break
@@ -353,7 +353,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 			if clientCtx.networkState != types.DPC_SUCCESS &&
 				operations["getUuid"] && oldUUID != nilUUID {
 
-				log.Functionf("Already have a UUID %s; declaring success",
+				log.Infof("Already have a UUID %s; declaring success",
 					oldUUID.String())
 				done = true
 			}
@@ -361,7 +361,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		case <-clientCtx.getCertsTimer.C:
 			// triggered by cert miss error in doGetUUID, so the TLS is device TLSConfig
 			ok := fetchCertChain(&zedcloudCtx, devtlsConfig, retryCount, true)
-			log.Functionf("client timer get cert chain %v", ok)
+			log.Infof("client timer get cert chain %v", ok)
 
 		case <-stillRunning.C:
 		}
@@ -374,15 +374,15 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		doWrite := true
 		if oldUUID != nilUUID {
 			if oldUUID != devUUID {
-				log.Functionf("Replacing existing UUID %s",
+				log.Infof("Replacing existing UUID %s",
 					oldUUID.String())
 			} else {
-				log.Functionf("No change to UUID %s",
+				log.Infof("No change to UUID %s",
 					devUUID)
 				doWrite = false
 			}
 		} else {
-			log.Functionf("Got config with UUID %s", devUUID)
+			log.Infof("Got config with UUID %s", devUUID)
 		}
 
 		if doWrite {
@@ -391,26 +391,26 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 			if err != nil {
 				log.Fatal("WriteFile", err, types.UUIDFileName)
 			}
-			log.Tracef("Wrote UUID %s", devUUID)
+			log.Debugf("Wrote UUID %s", devUUID)
 		}
 
 		// always publish the latest UUID
 		trigOnboardStatus.DeviceUUID = devUUID
 		pubOnboardStatus.Publish("global", trigOnboardStatus)
-		log.Functionf("client pub OnboardStatus")
+		log.Infof("client pub OnboardStatus")
 
 		doWrite = true
 		if hardwaremodel != "" {
 			if oldHardwaremodel != hardwaremodel {
-				log.Functionf("Replacing existing hardwaremodel %s with %s",
+				log.Infof("Replacing existing hardwaremodel %s with %s",
 					oldHardwaremodel, hardwaremodel)
 			} else {
-				log.Functionf("No change to hardwaremodel %s",
+				log.Infof("No change to hardwaremodel %s",
 					hardwaremodel)
 				doWrite = false
 			}
 		} else {
-			log.Functionf("Got config with no hardwaremodel")
+			log.Infof("Got config with no hardwaremodel")
 			doWrite = false
 		}
 
@@ -422,7 +422,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 				log.Fatal("WriteFile", err,
 					hardwaremodelFileName)
 			}
-			log.Tracef("Wrote hardwaremodel %s", hardwaremodel)
+			log.Debugf("Wrote hardwaremodel %s", hardwaremodel)
 		}
 		// We write the strings even if empty to make sure we have the most
 		// recents. Since this is for debug use we are less careful
@@ -432,13 +432,13 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		if err != nil {
 			log.Fatal("WriteFile", err, enterpriseFileName)
 		}
-		log.Tracef("Wrote enterprise %s", enterprise)
+		log.Debugf("Wrote enterprise %s", enterprise)
 		b = []byte(name) // Note that no CRLF
 		err = ioutil.WriteFile(nameFileName, b, 0644)
 		if err != nil {
 			log.Fatal("WriteFile", err, nameFileName)
 		}
-		log.Tracef("Wrote name %s", name)
+		log.Debugf("Wrote name %s", name)
 	}
 
 	err = pub.Publish("global", zedcloud.GetCloudMetrics(log))
@@ -461,13 +461,13 @@ func myPost(zedcloudCtx *zedcloud.ZedCloudContext, tlsConfig *tls.Config,
 	if err != nil {
 		switch rtf {
 		case types.SenderStatusUpgrade:
-			log.Functionf("Controller upgrade in progress")
+			log.Infof("Controller upgrade in progress")
 		case types.SenderStatusRefused:
-			log.Functionf("Controller returned ECONNREFUSED")
+			log.Infof("Controller returned ECONNREFUSED")
 		case types.SenderStatusCertInvalid:
 			log.Warnf("Controller certificate invalid time")
 		case types.SenderStatusCertMiss:
-			log.Functionf("Controller certificate miss")
+			log.Infof("Controller certificate miss")
 		default:
 			log.Error(err)
 		}
@@ -484,13 +484,13 @@ func myPost(zedcloudCtx *zedcloud.ZedCloudContext, tlsConfig *tls.Config,
 			// Inform ledmanager about existence in cloud
 			utils.UpdateLedManagerConfig(log, 4)
 		}
-		log.Functionf("%s StatusOK", requrl)
+		log.Infof("%s StatusOK", requrl)
 	case http.StatusCreated:
 		if !zedcloudCtx.NoLedManager {
 			// Inform ledmanager about existence in cloud
 			utils.UpdateLedManagerConfig(log, 4)
 		}
-		log.Functionf("%s StatusCreated", requrl)
+		log.Infof("%s StatusCreated", requrl)
 	case http.StatusConflict:
 		if !zedcloudCtx.NoLedManager {
 			// Inform ledmanager about brokenness
@@ -523,7 +523,7 @@ func myPost(zedcloudCtx *zedcloud.ZedCloudContext, tlsConfig *tls.Config,
 	}
 	switch mimeType {
 	case "application/x-proto-binary", "application/json", "text/plain":
-		log.Tracef("Received reply %s", string(contents))
+		log.Debugf("Received reply %s", string(contents))
 	default:
 		log.Errorln("Incorrect Content-Type " + mimeType)
 		return false, resp, senderStatus, contents
@@ -539,7 +539,7 @@ func selfRegister(zedcloudCtx *zedcloud.ZedCloudContext, tlsConfig *tls.Config, 
 	productSerial = strings.TrimSpace(productSerial)
 	softSerial := hardware.GetSoftSerial(log)
 	softSerial = strings.TrimSpace(softSerial)
-	log.Functionf("ProductSerial %s, SoftwareSerial %s", productSerial, softSerial)
+	log.Infof("ProductSerial %s, SoftwareSerial %s", productSerial, softSerial)
 
 	registerCreate := &register.ZRegisterMsg{
 		PemCert:    []byte(base64.StdEncoding.EncodeToString(deviceCertPem)),
@@ -589,17 +589,17 @@ func fetchCertChain(zedcloudCtx *zedcloud.ZedCloudContext, tlsConfig *tls.Config
 	// currently there is no data included for the request, same as myGet()
 	done, resp, _, contents = myPost(zedcloudCtx, tlsConfig, requrl, retryCount, 0, nil)
 	if resp != nil {
-		log.Functionf("client fetchCertChain done %v, resp-code %d, content len %d", done, resp.StatusCode, len(contents))
+		log.Infof("client fetchCertChain done %v, resp-code %d, content len %d", done, resp.StatusCode, len(contents))
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusUnauthorized ||
 			resp.StatusCode == http.StatusNotImplemented || resp.StatusCode == http.StatusBadRequest {
 			// cloud server does not support V2 API
-			log.Functionf("client fetchCertChain: server %s does not support V2 API", serverNameAndPort)
+			log.Infof("client fetchCertChain: server %s does not support V2 API", serverNameAndPort)
 			return false
 		}
 		// catch default return status, if not done, will return false later
-		log.Functionf("client fetchCertChain: server %s return status %s, done %v", serverNameAndPort, resp.Status, done)
+		log.Infof("client fetchCertChain: server %s return status %s, done %v", serverNameAndPort, resp.Status, done)
 	} else {
-		log.Functionf("client fetchCertChain done %v, resp null, content len %d", done, len(contents))
+		log.Infof("client fetchCertChain done %v, resp null, content len %d", done, len(contents))
 	}
 	if !done {
 		return false
@@ -621,7 +621,7 @@ func fetchCertChain(zedcloudCtx *zedcloud.ZedCloudContext, tlsConfig *tls.Config
 		return false
 	}
 
-	log.Functionf("client fetchCertChain: ok")
+	log.Infof("client fetchCertChain: ok")
 	return true
 }
 
@@ -659,11 +659,11 @@ func doGetUUIDNew(ctx *clientContext, tlsConfig *tls.Config,
 		// acquire new cert chain.
 		if rtf == types.SenderStatusCertMiss {
 			ctx.getCertsTimer = time.NewTimer(time.Second)
-			log.Functionf("doGetUUID: Cert miss. Setup timer to acquire")
+			log.Infof("doGetUUID: Cert miss. Setup timer to acquire")
 		}
 		return false, nilUUID, "", "", ""
 	}
-	log.Functionf("doGetUUID: client getUUID ok")
+	log.Infof("doGetUUID: client getUUID ok")
 	devUUID, hardwaremodel, enterprise, name, err := parseUUIDResponse(resp, contents)
 	if err == nil {
 		// Inform ledmanager about config received from cloud
@@ -705,11 +705,11 @@ func doGetUUIDLegacy(ctx *clientContext, tlsConfig *tls.Config,
 		if rtf == types.SenderStatusCertMiss {
 			interval := time.Duration(1)
 			ctx.getCertsTimer = time.NewTimer(interval * time.Second)
-			log.Functionf("doGetUUID: Cert miss. Setup timer to acquire")
+			log.Infof("doGetUUID: Cert miss. Setup timer to acquire")
 		}
 		return false, nilUUID, "", "", ""
 	}
-	log.Functionf("doGetUUID: client getUUID ok")
+	log.Infof("doGetUUID: client getUUID ok")
 	devUUID, hardwaremodel, enterprise, name, err := parseConfig(requrl, resp, contents)
 	if err == nil {
 		// Inform ledmanager about config received from cloud
@@ -723,32 +723,23 @@ func doGetUUIDLegacy(ctx *clientContext, tlsConfig *tls.Config,
 	return false, nilUUID, "", "", ""
 }
 
-func handleGlobalConfigCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleGlobalConfigImpl(ctxArg, key, statusArg)
-}
-
+// Handles both create and modify events
 func handleGlobalConfigModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleGlobalConfigImpl(ctxArg, key, statusArg)
-}
-
-func handleGlobalConfigImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
 	ctx := ctxArg.(*clientContext)
 	if key != "global" {
-		log.Tracef("handleGlobalConfigImpl: ignoring %s", key)
+		log.Debugf("handleGlobalConfigModify: ignoring %s", key)
 		return
 	}
-	log.Functionf("handleGlobalConfigImpl for %s", key)
+	log.Infof("handleGlobalConfigModify for %s", key)
 	var gcp *types.ConfigItemValueMap
 	debug, gcp = agentlog.HandleGlobalConfig(log, ctx.subGlobalConfig, agentName,
 		debugOverride, logger)
 	if gcp != nil {
 		ctx.globalConfig = gcp
 	}
-	log.Functionf("handleGlobalConfigImpl done for %s", key)
+	log.Infof("handleGlobalConfigModify done for %s", key)
 }
 
 func handleGlobalConfigDelete(ctxArg interface{}, key string,
@@ -756,55 +747,45 @@ func handleGlobalConfigDelete(ctxArg interface{}, key string,
 
 	ctx := ctxArg.(*clientContext)
 	if key != "global" {
-		log.Tracef("handleGlobalConfigDelete: ignoring %s", key)
+		log.Debugf("handleGlobalConfigDelete: ignoring %s", key)
 		return
 	}
-	log.Functionf("handleGlobalConfigDelete for %s", key)
+	log.Infof("handleGlobalConfigDelete for %s", key)
 	debug, _ = agentlog.HandleGlobalConfig(log, ctx.subGlobalConfig, agentName,
 		debugOverride, logger)
 	*ctx.globalConfig = *types.DefaultConfigItemValueMap()
-	log.Functionf("handleGlobalConfigDelete done for %s", key)
+	log.Infof("handleGlobalConfigDelete done for %s", key)
 }
 
-func handleDNSCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleDNSImpl(ctxArg, key, statusArg)
-}
-
-func handleDNSModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleDNSImpl(ctxArg, key, statusArg)
-}
-
-func handleDNSImpl(ctxArg interface{}, key string,
-	statusArg interface{}) {
+// Handles both create and modify events
+func handleDNSModify(ctxArg interface{}, key string, statusArg interface{}) {
 
 	status := statusArg.(types.DeviceNetworkStatus)
 	ctx := ctxArg.(*clientContext)
 	if key != "global" {
-		log.Functionf("handleDNSImpl: ignoring %s", key)
+		log.Infof("handleDNSModify: ignoring %s", key)
 		return
 	}
-	log.Functionf("handleDNSImpl for %s", key)
+	log.Infof("handleDNSModify for %s", key)
 	// Ignore test status and timestamps
 	if ctx.deviceNetworkStatus.MostlyEqual(status) {
-		log.Functionf("handleDNSImpl no change")
+		log.Infof("handleDNSModify no change")
 		return
 	}
 
-	log.Functionf("handleDNSImpl: changed %v",
+	log.Infof("handleDNSModify: changed %v",
 		cmp.Diff(ctx.deviceNetworkStatus, status))
 	*ctx.deviceNetworkStatus = status
 	newAddrCount := types.CountLocalAddrAnyNoLinkLocal(*ctx.deviceNetworkStatus)
 
 	if newAddrCount != ctx.usableAddressCount {
-		log.Functionf("DeviceNetworkStatus from %d to %d addresses",
+		log.Infof("DeviceNetworkStatus from %d to %d addresses",
 			ctx.usableAddressCount, newAddrCount)
 		// ledmanager subscribes to DeviceNetworkStatus to see changes
 		ctx.usableAddressCount = newAddrCount
 	}
 	if ctx.deviceNetworkStatus.State != ctx.networkState {
-		log.Functionf("DeviceNetworkStatus state from %s to %s",
+		log.Infof("DeviceNetworkStatus state from %s to %s",
 			ctx.deviceNetworkStatus.State.String(), ctx.networkState.String())
 		ctx.networkState = ctx.deviceNetworkStatus.State
 	}
@@ -825,24 +806,24 @@ func handleDNSImpl(ctxArg interface{}, key string,
 			onboardTLSConfig.RootCAs = cloudCtx.TlsConfig.RootCAs
 		}
 		devtlsConfig.RootCAs = cloudCtx.TlsConfig.RootCAs
-		log.Functionf("handleDNSImpl: client rootCAs updated")
+		log.Infof("handleDNSModify: client rootCAs updated")
 	}
 
-	log.Functionf("handleDNSImpl done for %s", key)
+	log.Infof("handleDNSModify done for %s", key)
 }
 
 func handleDNSDelete(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
-	log.Functionf("handleDNSDelete for %s", key)
+	log.Infof("handleDNSDelete for %s", key)
 	ctx := ctxArg.(*clientContext)
 
 	if key != "global" {
-		log.Functionf("handleDNSDelete: ignoring %s", key)
+		log.Infof("handleDNSDelete: ignoring %s", key)
 		return
 	}
 	*ctx.deviceNetworkStatus = types.DeviceNetworkStatus{}
 	newAddrCount := types.CountLocalAddrAnyNoLinkLocal(*ctx.deviceNetworkStatus)
 	ctx.usableAddressCount = newAddrCount
-	log.Functionf("handleDNSDelete done for %s", key)
+	log.Infof("handleDNSDelete done for %s", key)
 }

@@ -4,11 +4,9 @@
 package downloader
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/lf-edge/eve/pkg/pillar/zedUpload"
 	"github.com/lf-edge/eve/pkg/pillar/zedcloud"
@@ -46,7 +44,7 @@ func download(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 	proxyLookupURL := zedcloud.IntfLookupProxyCfg(log, &ctx.deviceNetworkStatus, ifname, downloadURL)
 	proxyURL, err := zedcloud.LookupProxy(log, &ctx.deviceNetworkStatus, ifname, proxyLookupURL)
 	if err == nil && proxyURL != nil {
-		log.Functionf("%s: Using proxy %s", trType, proxyURL.String())
+		log.Infof("%s: Using proxy %s", trType, proxyURL.String())
 		dEndPoint.WithSrcIPAndProxySelection(ipSrc, proxyURL)
 	} else {
 		dEndPoint.WithSrcIPSelection(ipSrc)
@@ -54,7 +52,7 @@ func download(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 
 	var respChan = make(chan *zedUpload.DronaRequest)
 
-	log.Functionf("%s syncOp for dpath:<%s>, region: <%s>, filename: <%s>, "+
+	log.Infof("%s syncOp for dpath:<%s>, region: <%s>, filename: <%s>, "+
 		"downloadURL: <%s>, maxsize: %d, ifname: %s, ipSrc: %+v, locFilename: %s",
 		trType, dpath, region, filename, downloadURL, maxsize, ifname, ipSrc,
 		locFilename)
@@ -65,16 +63,11 @@ func download(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 		return "", errors.New("NewRequest failed")
 	}
 
-	req = req.WithCancel(context.Background())
-	defer req.Cancel()
-
 	req.Post()
-
-	lastProgress := time.Now()
 	for resp := range respChan {
 		if resp.IsDnUpdate() {
 			currentSize, totalSize, progress := resp.Progress()
-			log.Functionf("Update progress for %v: %v/%v",
+			log.Infof("Update progress for %v: %v/%v",
 				resp.GetLocalName(), currentSize, totalSize)
 			// sometime, the download goes to an infinite loop,
 			// showing it has downloaded, more than it is supposed to
@@ -85,21 +78,7 @@ func download(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 				log.Errorln(errStr)
 				return "", errors.New(errStr)
 			}
-			// Did anything change since last update?
-			change := status.Progress(progress, currentSize,
-				totalSize)
-			if !change {
-				if time.Since(lastProgress) > maxStalledTime {
-					err := fmt.Errorf("Cancelling due to no progress for %s in %v; size %d/%d",
-						resp.GetLocalName(),
-						time.Since(lastProgress),
-						currentSize, totalSize)
-					log.Error(err)
-					return "", err
-				}
-			} else {
-				lastProgress = time.Now()
-			}
+			status.Progress(progress, currentSize, totalSize)
 			continue
 		}
 		if syncOp == zedUpload.SyncOpDownload {
@@ -110,8 +89,11 @@ func download(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 		if resp.IsError() {
 			return "", err
 		}
-		log.Functionf("Done for %v size %d",
-			resp.GetLocalName(), resp.GetAsize())
+		asize, osize := resp.GetAsize(), resp.GetOsize()
+		log.Infof("Done for %v: size %v/%v",
+			resp.GetLocalName(),
+			asize, osize)
+		status.Progress(100, osize, asize)
 		return req.GetContentType(), nil
 	}
 	// if we got here, channel was closed
@@ -146,7 +128,7 @@ func objectMetadata(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 
 	proxyURL, err := zedcloud.LookupProxy(log, &ctx.deviceNetworkStatus, ifname, proxyLookupURL)
 	if err == nil && proxyURL != nil {
-		log.Functionf("%s: Using proxy %s", trType, proxyURL.String())
+		log.Infof("%s: Using proxy %s", trType, proxyURL.String())
 		dEndPoint.WithSrcIPAndProxySelection(ipSrc, proxyURL)
 	} else {
 		dEndPoint.WithSrcIPSelection(ipSrc)
@@ -154,7 +136,7 @@ func objectMetadata(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 
 	var respChan = make(chan *zedUpload.DronaRequest)
 
-	log.Functionf("%s syncOp for dpath:<%s>, region: <%s>, filename: <%s>, "+
+	log.Infof("%s syncOp for dpath:<%s>, region: <%s>, filename: <%s>, "+
 		"downloadURL: <%s>, ifname: %s, ipSrc: %+v",
 		trType, dpath, region, filename, downloadURL, ifname, ipSrc)
 	// create Request
@@ -165,21 +147,9 @@ func objectMetadata(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 		return sha256, errors.New("NewRequest failed")
 	}
 
-	req = req.WithCancel(context.Background())
-	defer req.Cancel()
-
 	req.Post()
-
-	lastProgress := time.Now()
 	for resp := range respChan {
 		if resp.IsDnUpdate() {
-			if time.Since(lastProgress) > maxStalledTime {
-				err := fmt.Errorf("Cancelling due to no progress for %s in %v",
-					resp.GetLocalName(),
-					time.Since(lastProgress))
-				log.Error(err)
-				return "", err
-			}
 			continue
 		}
 		if syncOp == zedUpload.SyncOpGetObjectMetaData {
@@ -191,7 +161,7 @@ func objectMetadata(ctx *downloaderContext, trType zedUpload.SyncTransportType,
 		if resp.IsError() {
 			return sha256, err
 		}
-		log.Functionf("Resolve config Done for %v: sha %v",
+		log.Infof("Resolve config Done for %v: sha %v",
 			filename, resp.GetSha256())
 		return sha256, nil
 	}

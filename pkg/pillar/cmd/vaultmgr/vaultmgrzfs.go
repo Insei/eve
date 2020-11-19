@@ -77,7 +77,7 @@ func createZfsVault(vaultPath string) error {
 			vaultPath, err, stdOut, stdErr)
 		return err
 	}
-	log.Functionf("Created new vault %s", vaultPath)
+	log.Infof("Created new vault %s", vaultPath)
 	return nil
 }
 
@@ -85,7 +85,7 @@ func createZfsVault(vaultPath string) error {
 func checkKeyStatus(vaultPath string) error {
 	args := getKeyStatusParams(vaultPath)
 	if stdOut, stdErr, err := execCmd(vault.ZfsPath, args...); err != nil {
-		log.Tracef("keystatus query for %s results in error=%v, %s, %s",
+		log.Debugf("keystatus query for %s results in error=%v, %s, %s",
 			vaultPath, err, stdOut, stdErr)
 		return err
 	}

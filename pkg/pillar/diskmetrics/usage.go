@@ -32,18 +32,18 @@ func SizeFromDir(log *base.LogObject, dirname string) uint64 {
 	locations, err := f.Readdir(-1)
 	f.Close()
 	if err != nil {
-		//log.Tracef("Exception while reading dirs %s. Set the size to zero\n", err.Error(), dirname)
+		//log.Debugf("Exception while reading dirs %s. Set the size to zero\n", err.Error(), dirname)
 		return totalUsed
 	}
 	for _, location := range locations {
 		filename := dirname + "/" + location.Name()
-		log.Tracef("Looking in %s\n", filename)
+		log.Debugf("Looking in %s\n", filename)
 		if location.IsDir() {
 			size := SizeFromDir(log, filename)
-			log.Tracef("Dir %s size %d\n", filename, size)
+			log.Debugf("Dir %s size %d\n", filename, size)
 			totalUsed += size
 		} else {
-			log.Tracef("File %s Size %d\n", filename, location.Size())
+			log.Debugf("File %s Size %d\n", filename, location.Size())
 			totalUsed += uint64(location.Size())
 		}
 	}

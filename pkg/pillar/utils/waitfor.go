@@ -29,7 +29,7 @@ func WaitForVault(ps *pubsub.PubSub, log *base.LogObject, agentName string, warn
 		TopicImpl:     types.VaultStatus{},
 		Activate:      false,
 		Ctx:           Ctx,
-		CreateHandler: handleVaultStatusCreate,
+		CreateHandler: handleVaultStatusModify,
 		ModifyHandler: handleVaultStatusModify,
 		WarningTime:   warningTime,
 		ErrorTime:     errorTime,
@@ -46,7 +46,7 @@ func WaitForVault(ps *pubsub.PubSub, log *base.LogObject, agentName string, warn
 
 	// Wait for vault to be ready, which might be delayed due to attestation
 	for !Ctx.Initialized {
-		log.Functionf("Waiting for VaultStatus initialized")
+		log.Infof("Waiting for VaultStatus initialized")
 		select {
 		case change := <-subVaultStatus.MsgChan():
 			subVaultStatus.ProcessChange(change)
@@ -59,17 +59,7 @@ func WaitForVault(ps *pubsub.PubSub, log *base.LogObject, agentName string, warn
 	return nil
 }
 
-func handleVaultStatusCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleVaultStatusImpl(ctxArg, key, statusArg)
-}
-
 func handleVaultStatusModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleVaultStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleVaultStatusImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
 	ctx := ctxArg.(*Context)
@@ -92,7 +82,7 @@ func WaitForOnboarded(ps *pubsub.PubSub, log *base.LogObject, agentName string, 
 		Activate:      true,
 		Persistent:    true,
 		Ctx:           Ctx,
-		CreateHandler: handleOnboardStatusCreate,
+		CreateHandler: handleOnboardStatusModify,
 		ModifyHandler: handleOnboardStatusModify,
 		WarningTime:   warningTime,
 		ErrorTime:     errorTime,
@@ -107,7 +97,7 @@ func WaitForOnboarded(ps *pubsub.PubSub, log *base.LogObject, agentName string, 
 
 	// Wait for Onboarding to be done by client
 	for !Ctx.Initialized {
-		log.Functionf("Waiting for OnboardStatus initialized")
+		log.Infof("Waiting for OnboardStatus initialized")
 		select {
 		case change := <-subOnboardStatus.MsgChan():
 			subOnboardStatus.ProcessChange(change)
@@ -124,19 +114,7 @@ func WaitForOnboarded(ps *pubsub.PubSub, log *base.LogObject, agentName string, 
 var nilUUID = uuid.UUID{}
 
 // Set Initialized if the UUID is not nil
-func handleOnboardStatusCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleOnboardStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleOnboardStatusModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleOnboardStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleOnboardStatusImpl(ctxArg interface{}, key string,
-	statusArg interface{}) {
-
+func handleOnboardStatusModify(ctxArg interface{}, key string, statusArg interface{}) {
 	status := statusArg.(types.OnboardingStatus)
 	ctx := ctxArg.(*Context)
 

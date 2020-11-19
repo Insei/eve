@@ -18,7 +18,7 @@ import (
 // image name that wraps the blob, or create one
 func getManifestsForBareBlob(ctx *volumemgrContext, image, rootHash string, size int64) ([]*types.BlobStatus, error) {
 	// at least one decriptor must match ours
-	log.Functionf("getManifestsForBareBlob(%s, %s, %d)", image, rootHash, size)
+	log.Infof("getManifestsForBareBlob(%s, %s, %d)", image, rootHash, size)
 	rootHashFull := fmt.Sprintf("%s:%s", "sha256", rootHash)
 	artifact := &registry.Artifact{
 		Root: &registry.Disk{
@@ -106,17 +106,12 @@ func createManifestsForBareBlob(artifact *registry.Artifact) ([]*types.BlobStatu
 		return nil, fmt.Errorf("getManifestsForBlob: Exception while reading config bytes: %s",
 			err.Error())
 	}
-	blen := int64(len(configBytes))
 	// and the config file which was in the manifest
 	blobStatuses = append(blobStatuses, &types.BlobStatus{
-		Content:     configBytes,
-		State:       types.VERIFIED,
-		Size:        uint64(blen),
-		CurrentSize: blen,
-		TotalSize:   blen,
-		Progress:    100,
-		MediaType:   string(v1types.OCIConfigJSON),
-		Sha256:      manifest.Config.Digest.Encoded(),
+		Content:   configBytes,
+		State:     types.VERIFIED,
+		MediaType: string(v1types.OCIConfigJSON),
+		Sha256:    manifest.Config.Digest.Encoded(),
 	})
 	return blobStatuses, nil
 }

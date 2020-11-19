@@ -21,7 +21,6 @@ AGENTS="$AGENTS0 $AGENTS1"
 TPM_DEVICE_PATH="/dev/tpmrm0"
 SECURITYFSPATH=/sys/kernel/security
 PATH=$BINDIR:$PATH
-TPMINFOTEMPFILE=/var/tmp/tpminfo.txt
 
 echo "$(date -Ins -u) Starting device-steps.sh"
 echo "$(date -Ins -u) EVE version: $(cat /run/eve-release)"
@@ -257,10 +256,7 @@ access_usb() {
         if [ -d /mnt/dump ]; then
             echo "$(date -Ins -u) Dumping diagnostics to USB stick"
             # Check if it fits without clobbering an existing tar file
-            if ! $BINDIR/tpmmgr saveTpmInfo $TPMINFOTEMPFILE; then
-                echo "$(date -Ins -u) saveTpmInfo failed" > $TPMINFOTEMPFILE
-            fi
-            if tar cf /mnt/dump/diag1.tar /persist/status/ /var/run/ /persist/log "/persist/rsyslog" $TPMINFOTEMPFILE; then
+            if tar cf /mnt/dump/diag1.tar /persist/status/ /persist/config /run/ /persist/log "/persist/rsyslog"; then
                 mv /mnt/dump/diag1.tar /mnt/dump/diag.tar
             else
                 rm -f /mnt/dump/diag1.tar
@@ -302,12 +298,7 @@ wait_for_touch nim
 touch "$WATCHDOG_FILE/nim.touch"
 
 # Print diag output forever on changes
-# NOTE: it is safe to do either kill -STOP or an outright
-# kill -9 on the following cat process if you want to stop
-# receiving those messages on the console.
-mkfifo /run/diag.pipe
-(while true; do cat; done) < /run/diag.pipe >/dev/console 2>&1 &
-$BINDIR/diag -f -o /run/diag.pipe runAsService &
+$BINDIR/diag -f -o /dev/console &
 
 # Wait for having IP addresses for a few minutes
 # so that we are likely to have an address when we run ntp

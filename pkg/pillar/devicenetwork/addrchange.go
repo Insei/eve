@@ -20,7 +20,7 @@ import (
 //
 func AddrChangeInit(log *base.LogObject) chan netlink.AddrUpdate {
 
-	log.Functionf("AddrChangeInit()\n")
+	log.Infof("AddrChangeInit()\n")
 
 	addrchan := make(chan netlink.AddrUpdate)
 	donechan := make(chan struct{})
@@ -36,7 +36,7 @@ func AddrChangeInit(log *base.LogObject) chan netlink.AddrUpdate {
 		addropt); err != nil {
 		log.Fatal(err)
 	}
-	log.Functionf("AddrChangeInit() DONE\n")
+	log.Infof("AddrChangeInit() DONE\n")
 	return addrchan
 }
 
@@ -67,9 +67,9 @@ func AddrChange(ctx DeviceNetworkContext, change netlink.AddrUpdate) (bool, int)
 				DelSourceRule(log, change.LinkIndex, change.LinkAddress, false)
 			}
 		}
-		log.Functionf("AddrChange: changed, %d %s", change.LinkIndex, change.LinkAddress.String())
+		log.Infof("AddrChange: changed, %d %s", change.LinkIndex, change.LinkAddress.String())
 	} else {
-		log.Tracef("AddrChange: no change, %d %s", change.LinkIndex, change.LinkAddress.String())
+		log.Debugf("AddrChange: no change, %d %s", change.LinkIndex, change.LinkAddress.String())
 	}
 	return changed, change.LinkIndex
 }
@@ -81,7 +81,7 @@ func AddrChange(ctx DeviceNetworkContext, change netlink.AddrUpdate) (bool, int)
 //
 func LinkChangeInit(log *base.LogObject) chan netlink.LinkUpdate {
 
-	log.Functionf("LinkChangeInit()\n")
+	log.Infof("LinkChangeInit()\n")
 
 	// Need links to get name to ifindex? Or lookup each time?
 	linkchan := make(chan netlink.LinkUpdate)
@@ -97,7 +97,7 @@ func LinkChangeInit(log *base.LogObject) chan netlink.LinkUpdate {
 		linkopt); err != nil {
 		log.Fatal(err)
 	}
-	log.Functionf("LinkChangeInit() DONE\n")
+	log.Infof("LinkChangeInit() DONE\n")
 	return linkchan
 }
 
@@ -108,7 +108,7 @@ func LinkChangeInit(log *base.LogObject) chan netlink.LinkUpdate {
 //
 func RouteChangeInit(log *base.LogObject) chan netlink.RouteUpdate {
 
-	log.Functionf("RouteChangeInit()\n")
+	log.Infof("RouteChangeInit()\n")
 
 	routechan := make(chan netlink.RouteUpdate)
 	donechan := make(chan struct{})
@@ -123,7 +123,7 @@ func RouteChangeInit(log *base.LogObject) chan netlink.RouteUpdate {
 		rtopt); err != nil {
 		log.Fatal(err)
 	}
-	log.Functionf("RouteChangeInit() DONE\n")
+	log.Infof("RouteChangeInit() DONE\n")
 	return routechan
 }
 
@@ -133,19 +133,19 @@ func checkIfMgmtPortsHaveIPandDNS(log *base.LogObject, status types.DeviceNetwor
 
 	mgmtPorts := types.GetMgmtPortsAny(status, 0)
 	if len(mgmtPorts) == 0 {
-		log.Functionf("XXX no management ports")
+		log.Infof("XXX no management ports")
 		return false
 	}
 
 	for _, port := range mgmtPorts {
 		numAddrs := types.CountLocalIPv4AddrAnyNoLinkLocalIf(status, port)
 		if numAddrs < 1 {
-			log.Tracef("No addresses on %s", port)
+			log.Debugf("No addresses on %s", port)
 			continue
 		}
 		numDNSServers := types.CountDNSServers(status, port)
 		if numDNSServers < 1 {
-			log.Tracef("Have addresses but no DNS on %s", port)
+			log.Debugf("Have addresses but no DNS on %s", port)
 			continue
 		}
 		return true
@@ -159,7 +159,7 @@ func HandleAddressChange(ctx *DeviceNetworkContext) {
 	// Check if we have more or less addresses
 	var dnStatus types.DeviceNetworkStatus
 
-	log.Functionf("HandleAddressChange Pending.Inprogress %v",
+	log.Infof("HandleAddressChange Pending.Inprogress %v",
 		ctx.Pending.Inprogress)
 	if !ctx.Pending.Inprogress {
 		dnStatus = *ctx.DeviceNetworkStatus
@@ -167,29 +167,29 @@ func HandleAddressChange(ctx *DeviceNetworkContext) {
 			dnStatus)
 
 		if !reflect.DeepEqual(*ctx.DeviceNetworkStatus, status) {
-			log.Functionf("HandleAddressChange: change from %v to %v\n",
+			log.Infof("HandleAddressChange: change from %v to %v\n",
 				*ctx.DeviceNetworkStatus, status)
 			*ctx.DeviceNetworkStatus = status
 			DoDNSUpdate(ctx)
 		} else {
-			log.Functionf("HandleAddressChange: No change\n")
+			log.Infof("HandleAddressChange: No change\n")
 		}
 	} else {
 		dnStatus = MakeDeviceNetworkStatus(log, *ctx.DevicePortConfig,
 			ctx.Pending.PendDNS)
 
 		if !reflect.DeepEqual(ctx.Pending.PendDNS, dnStatus) {
-			log.Functionf("HandleAddressChange pending: change from %v to %v\n",
+			log.Infof("HandleAddressChange pending: change from %v to %v\n",
 				ctx.Pending.PendDNS, dnStatus)
 			pingTestDNS := checkIfMgmtPortsHaveIPandDNS(log, dnStatus)
 			if pingTestDNS {
 				// We have a suitable candiate for running our cloud ping test.
-				log.Functionf("HandleAddressChange: Running cloud ping test now, " +
+				log.Infof("HandleAddressChange: Running cloud ping test now, " +
 					"Since we have suitable addresses already.")
 				VerifyDevicePortConfig(ctx)
 			}
 		} else {
-			log.Functionf("HandleAddressChange pending: No change\n")
+			log.Infof("HandleAddressChange pending: No change\n")
 		}
 	}
 }
@@ -220,7 +220,7 @@ func RouteChange(ctx DeviceNetworkContext, change netlink.RouteUpdate) (bool, in
 	if !isPort {
 		return false, 0
 	}
-	log.Functionf("RouteChange(%d/%s) %s %+v", rt.LinkIndex, ifname, op, rt)
+	log.Infof("RouteChange(%d/%s) %s %+v", rt.LinkIndex, ifname, op, rt)
 	MyTable := baseTableIndex + rt.LinkIndex
 	// Apply to ifindex specific table
 	myrt := rt
@@ -230,13 +230,13 @@ func RouteChange(ctx DeviceNetworkContext, change netlink.RouteUpdate) (bool, in
 		myrt.Flags = 0
 	}
 	if change.Type == getRouteUpdateTypeDELROUTE() {
-		log.Functionf("Received route del %v\n", rt)
+		log.Infof("Received route del %v\n", rt)
 		if err := netlink.RouteDel(&myrt); err != nil {
 			log.Errorf("Failed to remove %v from %d: %s\n",
 				myrt, myrt.Table, err)
 		}
 	} else if change.Type == getRouteUpdateTypeNEWROUTE() {
-		log.Functionf("Received route add %v\n", rt)
+		log.Infof("Received route add %v\n", rt)
 		if err := netlink.RouteAdd(&myrt); err != nil {
 			log.Errorf("Failed to add %v to %d: %s\n",
 				myrt, myrt.Table, err)
@@ -255,7 +255,7 @@ var ifnameHasPBR = make(map[string][]net.IP)
 // or if the set of IP addresses change
 func UpdatePBR(log *base.LogObject, status types.DeviceNetworkStatus) {
 
-	log.Functionf("UpdatePBR: %d ports", len(status.Ports))
+	log.Infof("UpdatePBR: %d ports", len(status.Ports))
 	// Track any ifnames which need to have PBR deleted
 	ifnameFound := make(map[string]bool)
 
@@ -268,11 +268,11 @@ func UpdatePBR(log *base.LogObject, status types.DeviceNetworkStatus) {
 		}
 		if oldAddrs, ok := ifnameHasPBR[u.IfName]; ok {
 			if reflect.DeepEqual(oldAddrs, addrs) {
-				log.Functionf("Ifname %s already has PBR",
+				log.Infof("Ifname %s already has PBR",
 					u.IfName)
 				continue
 			}
-			log.Functionf("Ifname %s PBR changed from %v to %v",
+			log.Infof("Ifname %s PBR changed from %v to %v",
 				u.IfName, oldAddrs, addrs)
 			delPBR(log, status, u.IfName)
 			addPBR(log, status, u.IfName, addrs)
@@ -292,7 +292,7 @@ func UpdatePBR(log *base.LogObject, status types.DeviceNetworkStatus) {
 }
 
 func addPBR(log *base.LogObject, status types.DeviceNetworkStatus, ifname string, addrs []net.IP) {
-	log.Functionf("addPBR(%s) addrs %v", ifname, addrs)
+	log.Infof("addPBR(%s) addrs %v", ifname, addrs)
 	ifindex, err := IfnameToIndex(log, ifname)
 	if err != nil {
 		log.Errorf("addPBR can't find ifindex for %s", ifname)
@@ -310,7 +310,7 @@ func addPBR(log *base.LogObject, status types.DeviceNetworkStatus, ifname string
 }
 
 func delPBR(log *base.LogObject, status types.DeviceNetworkStatus, ifname string) {
-	log.Functionf("delPBR(%s)", ifname)
+	log.Infof("delPBR(%s)", ifname)
 	ifindex, err := IfnameToIndex(log, ifname)
 	if err != nil {
 		log.Errorf("delPBR can't find ifindex for %s", ifname)

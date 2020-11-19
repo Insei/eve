@@ -3,8 +3,8 @@
 
 package verifier
 
-func handleVerifyImageConfigModify(ctxArg interface{}, key string, configArg interface{}, oldConfigArg interface{}) {
-	vHandler.modify(ctxArg, key, configArg, oldConfigArg)
+func handleVerifyImageConfigModify(ctxArg interface{}, key string, configArg interface{}) {
+	vHandler.modify(ctxArg, key, configArg)
 }
 
 func handleVerifyImageConfigCreate(ctxArg interface{}, key string, configArg interface{}) {

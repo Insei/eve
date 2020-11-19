@@ -15,4 +15,3 @@
 ^.+go.mod
 ^.+go.sum
 ^.+/vendor/.+
-^.codespellignorelines

@@ -56,15 +56,9 @@ func AddWorkCreate(ctx *volumemgrContext, status *types.VolumeStatus) {
 		status: *status,
 	}
 	w := worker.Work{Kind: workCreate, Key: status.Key(), Description: d}
-	// Don't fail on errors to make idempotent (Submit returns an error if
+	// Don't check errors to make idempotent (Submit returns an error if
 	// the work was already submitted)
-	done, err := ctx.worker.TrySubmit(w)
-	if err != nil {
-		log.Errorf("TrySubmit %s failed: %s", status.Key(), err)
-	} else if !done {
-		log.Fatalf("Failed to submit work due to queue length for %s",
-			status.Key())
-	}
+	_ = ctx.worker.Submit(w)
 }
 
 // AddWorkLoad adds a Work job to load an image and blobs into CAS
@@ -73,15 +67,9 @@ func AddWorkLoad(ctx *volumemgrContext, status *types.ContentTreeStatus) {
 		status: *status,
 	}
 	w := worker.Work{Kind: workIngest, Key: status.Key(), Description: d}
-	// Don't fail on errors to make idempotent (Submit returns an error if
+	// Don't check errors to make idempotent (Submit returns an error if
 	// the work was already submitted)
-	done, err := ctx.worker.TrySubmit(w)
-	if err != nil {
-		log.Errorf("TrySubmit %s failed: %s", status.Key(), err)
-	} else if !done {
-		log.Fatalf("Failed to submit work due to queue length for %s",
-			status.Key())
-	}
+	_ = ctx.worker.Submit(w)
 }
 
 // DeleteWorkCreate is called by user when work is done
@@ -101,15 +89,9 @@ func AddWorkDestroy(ctx *volumemgrContext, status *types.VolumeStatus) {
 		status:  *status,
 	}
 	w := worker.Work{Kind: workCreate, Key: status.Key(), Description: d}
-	// Don't fail on errors to make idempotent (Submit returns an error if
+	// Don't check errors to make idempotent (Submit returns an error if
 	// the work was already submitted)
-	done, err := ctx.worker.TrySubmit(w)
-	if err != nil {
-		log.Errorf("TrySubmit %s failed: %s", status.Key(), err)
-	} else if !done {
-		log.Fatalf("Failed to submit work due to queue length for %s",
-			status.Key())
-	}
+	_ = ctx.worker.Submit(w)
 }
 
 // DeleteWorkDestroy cancels a job to destroy a volume
@@ -148,7 +130,7 @@ func casIngestWorker(ctxPtr interface{}, w worker.Work) worker.WorkResult {
 	d := w.Description.(casIngestWorkDescription)
 	status := d.status
 
-	log.Functionf("casIngestWorker has blobs: %v", status.Blobs)
+	log.Infof("casIngestWorker has blobs: %v", status.Blobs)
 	blobStatuses := lookupBlobStatuses(ctx, status.Blobs...)
 
 	// find the blobs we need to load and indicate that they are being loaded
@@ -171,8 +153,13 @@ func casIngestWorker(ctxPtr interface{}, w worker.Work) worker.WorkResult {
 			continue
 		}
 		found[blob.Sha256] = true
-		if blob.State == types.LOADING {
+		if blob.State < types.LOADING {
+			// Pay close attention: we copy the blob *before* changing it to loading.
+			// We want everything else to know that it is LOADING, but not the routine to
+			// ingest that we are about to call.
 			loadBlobs = append(loadBlobs, *blob)
+			blob.State = types.LOADING
+			publishBlobStatus(ctx, blob)
 		}
 	}
 
@@ -207,7 +194,8 @@ func processVolumeWorkResult(ctxPtr interface{}, res worker.WorkResult) error {
 func processCasIngestWorkResult(ctxPtr interface{}, res worker.WorkResult) error {
 	ctx := ctxPtr.(*volumemgrContext)
 	d := res.Description.(casIngestWorkDescription)
-	updateStatusByBlob(ctx, d.status.Blobs...)
+	// this might have changed, so we want to be careful about passing it; always look it up
+	updateContentTreeByID(ctx, d.status.Key())
 	return nil
 }
 

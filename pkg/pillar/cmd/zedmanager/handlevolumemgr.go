@@ -19,15 +19,15 @@ func MaybeAddVolumeRefConfig(ctx *zedmanagerContext, appInstID uuid.UUID,
 	volumeID uuid.UUID, generationCounter int64, mountDir string) {
 
 	key := fmt.Sprintf("%s#%d", volumeID.String(), generationCounter)
-	log.Functionf("MaybeAddVolumeRefConfig for %s", key)
+	log.Infof("MaybeAddVolumeRefConfig for %s", key)
 	m := lookupVolumeRefConfig(ctx, key)
 	if m != nil {
 		m.RefCount++
-		log.Functionf("VolumeRefConfig exists for %s to refcount %d",
+		log.Infof("VolumeRefConfig exists for %s to refcount %d",
 			key, m.RefCount)
 		publishVolumeRefConfig(ctx, m)
 	} else {
-		log.Tracef("MaybeAddVolumeRefConfig: add for %s", key)
+		log.Debugf("MaybeAddVolumeRefConfig: add for %s", key)
 		vrc := types.VolumeRefConfig{
 			VolumeID:          volumeID,
 			GenerationCounter: generationCounter,
@@ -38,7 +38,7 @@ func MaybeAddVolumeRefConfig(ctx *zedmanagerContext, appInstID uuid.UUID,
 	}
 	base.NewRelationObject(log, base.AddRelationType, base.AppInstanceConfigLogType, appInstID.String(),
 		base.VolumeRefConfigLogType, key).Noticef("App instance to volume relation.")
-	log.Functionf("MaybeAddVolumeRefConfig done for %s", key)
+	log.Infof("MaybeAddVolumeRefConfig done for %s", key)
 }
 
 // MaybeRemoveVolumeRefConfig decreases the RefCount and deletes the VolumeRefConfig
@@ -47,10 +47,10 @@ func MaybeRemoveVolumeRefConfig(ctx *zedmanagerContext, appInstID uuid.UUID,
 	volumeID uuid.UUID, generationCounter int64) {
 
 	key := fmt.Sprintf("%s#%d", volumeID.String(), generationCounter)
-	log.Functionf("MaybeRemoveVolumeRefConfig for %s", key)
+	log.Infof("MaybeRemoveVolumeRefConfig for %s", key)
 	m := lookupVolumeRefConfig(ctx, key)
 	if m == nil {
-		log.Functionf("MaybeRemoveVolumeRefConfig: config missing for %s", key)
+		log.Infof("MaybeRemoveVolumeRefConfig: config missing for %s", key)
 		return
 	}
 	if m.RefCount == 0 {
@@ -59,16 +59,16 @@ func MaybeRemoveVolumeRefConfig(ctx *zedmanagerContext, appInstID uuid.UUID,
 	}
 	m.RefCount--
 	if m.RefCount == 0 {
-		log.Functionf("MaybeRemoveVolumeRefConfig deleting %s", key)
+		log.Infof("MaybeRemoveVolumeRefConfig deleting %s", key)
 		unpublishVolumeRefConfig(ctx, key)
 	} else {
-		log.Functionf("MaybeRemoveVolumeRefConfig remaining RefCount %d for %s",
+		log.Infof("MaybeRemoveVolumeRefConfig remaining RefCount %d for %s",
 			m.RefCount, key)
 		publishVolumeRefConfig(ctx, m)
 	}
 	base.NewRelationObject(log, base.DeleteRelationType, base.AppInstanceConfigLogType, appInstID.String(),
 		base.VolumeRefConfigLogType, key).Noticef("App instance to volume relation.")
-	log.Functionf("MaybeRemoveVolumeRefConfig done for %s", key)
+	log.Infof("MaybeRemoveVolumeRefConfig done for %s", key)
 }
 
 func lookupVolumeRefConfig(ctx *zedmanagerContext, key string) *types.VolumeRefConfig {
@@ -76,7 +76,7 @@ func lookupVolumeRefConfig(ctx *zedmanagerContext, key string) *types.VolumeRefC
 	pub := ctx.pubVolumeRefConfig
 	c, _ := pub.Get(key)
 	if c == nil {
-		log.Tracef("lookupVolumeRefConfig(%s) not found", key)
+		log.Debugf("lookupVolumeRefConfig(%s) not found", key)
 		return nil
 	}
 	config := c.(types.VolumeRefConfig)
@@ -88,7 +88,7 @@ func lookupVolumeRefStatus(ctx *zedmanagerContext, key string) *types.VolumeRefS
 	sub := ctx.subVolumeRefStatus
 	c, _ := sub.Get(key)
 	if c == nil {
-		log.Tracef("lookupVolumeRefStatus(%s) not found", key)
+		log.Debugf("lookupVolumeRefStatus(%s) not found", key)
 		return nil
 	}
 	status := c.(types.VolumeRefStatus)
@@ -98,15 +98,15 @@ func lookupVolumeRefStatus(ctx *zedmanagerContext, key string) *types.VolumeRefS
 func publishVolumeRefConfig(ctx *zedmanagerContext, config *types.VolumeRefConfig) {
 
 	key := config.Key()
-	log.Tracef("publishVolumeRefConfig(%s)", key)
+	log.Debugf("publishVolumeRefConfig(%s)", key)
 	pub := ctx.pubVolumeRefConfig
 	pub.Publish(key, *config)
-	log.Tracef("publishVolumeRefConfig(%s) Done", key)
+	log.Debugf("publishVolumeRefConfig(%s) Done", key)
 }
 
 func unpublishVolumeRefConfig(ctx *zedmanagerContext, key string) {
 
-	log.Tracef("unpublishVolumeRefConfig(%s)", key)
+	log.Debugf("unpublishVolumeRefConfig(%s)", key)
 	pub := ctx.pubVolumeRefConfig
 	c, _ := pub.Get(key)
 	if c == nil {
@@ -114,25 +114,15 @@ func unpublishVolumeRefConfig(ctx *zedmanagerContext, key string) {
 		return
 	}
 	pub.Unpublish(key)
-	log.Tracef("unpublishVolumeRefConfig(%s) Done", key)
-}
-
-func handleVolumeRefStatusCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleVolumeRefStatusImpl(ctxArg, key, statusArg)
+	log.Debugf("unpublishVolumeRefConfig(%s) Done", key)
 }
 
 func handleVolumeRefStatusModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleVolumeRefStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleVolumeRefStatusImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
 	status := statusArg.(types.VolumeRefStatus)
 	ctx := ctxArg.(*zedmanagerContext)
-	log.Functionf("handleVolumeRefStatusImpl: key:%s, name:%s",
+	log.Infof("handleVolumeRefStatusModify: key:%s, name:%s",
 		key, status.DisplayName)
 	pub := ctx.pubAppInstanceStatus
 	items := pub.GetAll()
@@ -146,7 +136,7 @@ func handleVolumeRefStatusImpl(ctxArg interface{}, key string,
 			}
 		}
 	}
-	log.Functionf("handleVolumeRefStatusImpl done for %s", key)
+	log.Infof("handleVolumeRefStatusModify done for %s", key)
 }
 
 func handleVolumeRefStatusDelete(ctxArg interface{}, key string,
@@ -154,7 +144,7 @@ func handleVolumeRefStatusDelete(ctxArg interface{}, key string,
 
 	status := statusArg.(types.VolumeRefStatus)
 	ctx := ctxArg.(*zedmanagerContext)
-	log.Functionf("handleVolumeRefStatusDelete: key:%s, name:%s",
+	log.Infof("handleVolumeRefStatusDelete: key:%s, name:%s",
 		key, status.DisplayName)
 	pub := ctx.pubAppInstanceStatus
 	items := pub.GetAll()
@@ -168,37 +158,37 @@ func handleVolumeRefStatusDelete(ctxArg interface{}, key string,
 			}
 		}
 	}
-	log.Functionf("handleVolumeRefStatusDelete done for %s", key)
+	log.Infof("handleVolumeRefStatusDelete done for %s", key)
 }
 
 func getVolumeRefStatusFromAIStatus(status *types.AppInstanceStatus,
 	vrc types.VolumeRefConfig) *types.VolumeRefStatus {
 
-	log.Tracef("getVolumeRefStatusFromAIStatus(%v)", vrc.Key())
+	log.Debugf("getVolumeRefStatusFromAIStatus(%v)", vrc.Key())
 	for i := range status.VolumeRefStatusList {
 		vrs := &status.VolumeRefStatusList[i]
 		if vrs.VolumeID == vrc.VolumeID && vrs.GenerationCounter == vrc.GenerationCounter {
-			log.Tracef("getVolumeRefStatusFromAIStatus(%v) found %s generationCounter %d",
+			log.Debugf("getVolumeRefStatusFromAIStatus(%v) found %s generationCounter %d",
 				vrs.Key(), vrs.DisplayName, vrs.GenerationCounter)
 			return vrs
 		}
 	}
-	log.Tracef("getVolumeRefStatusFromAIStatus(%v) Done", vrc.Key())
+	log.Debugf("getVolumeRefStatusFromAIStatus(%v) Done", vrc.Key())
 	return nil
 }
 
 func getVolumeRefConfigFromAIConfig(config *types.AppInstanceConfig,
 	vrs types.VolumeRefStatus) *types.VolumeRefConfig {
 
-	log.Tracef("getVolumeRefConfigFromAIConfig(%v)", vrs.Key())
+	log.Debugf("getVolumeRefConfigFromAIConfig(%v)", vrs.Key())
 	for i := range config.VolumeRefConfigList {
 		vrc := &config.VolumeRefConfigList[i]
 		if vrc.VolumeID == vrs.VolumeID && vrc.GenerationCounter == vrs.GenerationCounter {
-			log.Tracef("getVolumeRefConfigFromAIConfig(%v) found %s generationCounter %d",
+			log.Debugf("getVolumeRefConfigFromAIConfig(%v) found %s generationCounter %d",
 				vrs.Key(), vrs.DisplayName, vrs.GenerationCounter)
 			return vrc
 		}
 	}
-	log.Tracef("getVolumeRefConfigFromAIConfig(%v) Done", vrs.Key())
+	log.Debugf("getVolumeRefConfigFromAIConfig(%v) Done", vrs.Key())
 	return nil
 }

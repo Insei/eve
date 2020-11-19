@@ -158,7 +158,7 @@ func TestPubsubLog(t *testing.T) {
 		t.Logf("subCreateHandler")
 		created = true
 	}
-	subModifyHandler := func(ctxArg interface{}, key string, status interface{}, oldStatus interface{}) {
+	subModifyHandler := func(ctxArg interface{}, key string, status interface{}) {
 		t.Logf("subModifyHandler")
 		modified = true
 	}

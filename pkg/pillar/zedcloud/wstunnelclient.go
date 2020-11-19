@@ -73,7 +73,7 @@ func InitializeTunnelClient(log *base.LogObject, serverNameAndPort string, local
 // session with remote tunnel server
 func (t *WSTunnelClient) Start() {
 	log := t.log
-	log.Functionf("Creating %s at %s", "func", agentlog.GetMyStack())
+	log.Infof("Creating %s at %s", "func", agentlog.GetMyStack())
 	go func() {
 		t.startSession()
 		<-make(chan struct{}, 0)
@@ -102,8 +102,8 @@ func (t *WSTunnelClient) TestConnection(devNetStatus *types.DeviceNetworkStatus,
 	}
 	t.LocalRelayServer = strings.TrimSuffix(t.LocalRelayServer, "/")
 
-	log.Tracef("Testing connection to %s on local address: %v, proxy: %v", t.Tunnel, localAddr, proxyURL)
-	log.Functionf("Testing connection to %s on local address: %v, proxy: %v", t.Tunnel, localAddr, proxyURL)
+	log.Debugf("Testing connection to %s on local address: %v, proxy: %v", t.Tunnel, localAddr, proxyURL)
+	log.Infof("Testing connection to %s on local address: %v, proxy: %v", t.Tunnel, localAddr, proxyURL)
 
 	serverName := strings.Split(t.TunnelServerNameAndPort, ":")[0]
 
@@ -132,16 +132,16 @@ func (t *WSTunnelClient) TestConnection(devNetStatus *types.DeviceNetworkStatus,
 	pingURL := URLPathString(t.Tunnel, zedcloudCtx.V2API, devUUID, "connection/ping")
 	_, resp, err := dialer.Dial(pingURL, nil)
 	if resp == nil { // this can get error, but with resp code is still 200
-		log.Functionf("TestConnection: url %s, resp %v, err %v", pingURL, resp, err)
+		log.Infof("TestConnection: url %s, resp %v, err %v", pingURL, resp, err)
 		return err
 	}
-	log.Tracef("Read ping response status code: %v for ping url: %s", resp.StatusCode, pingURL)
+	log.Debugf("Read ping response status code: %v for ping url: %s", resp.StatusCode, pingURL)
 
 	if resp.StatusCode == http.StatusOK {
 		url := URLPathString(t.Tunnel, zedcloudCtx.V2API, devUUID, "connection/tunnel")
 		t.DestURL = url
 		t.Dialer = dialer
-		log.Functionf("Connection test succeeded for url: %s on local address: %v, proxy: %v", url, localAddr, proxyURL)
+		log.Infof("Connection test succeeded for url: %s on local address: %v, proxy: %v", url, localAddr, proxyURL)
 		return nil
 	}
 	return err
@@ -160,9 +160,9 @@ func (t *WSTunnelClient) startSession() error {
 	t.retryOnFailCount = 0
 
 	// Keep opening websocket connections to tunnel requests
-	log.Functionf("Creating %s at %s", "func", agentlog.GetMyStack())
+	log.Infof("Creating %s at %s", "func", agentlog.GetMyStack())
 	go func() {
-		log.Trace("Looping through websocket connection requests")
+		log.Debug("Looping through websocket connection requests")
 		for {
 			if t.retryOnFailCount == maxRetryAttempts {
 				log.Errorf("Shutting down tunnel client after %d failed attempts.", maxRetryAttempts)
@@ -171,7 +171,7 @@ func (t *WSTunnelClient) startSession() error {
 			// Retry timer of 30 seconds between attempts.
 			timer := time.NewTimer(30 * time.Second)
 
-			log.Tracef("Attempting WS connection to url: %s", t.DestURL)
+			log.Debugf("Attempting WS connection to url: %s", t.DestURL)
 
 			ws, resp, err := t.Dialer.Dial(t.DestURL, nil)
 			if err != nil {
@@ -214,7 +214,7 @@ func (t *WSTunnelClient) startSession() error {
 
 // Stop tunnel client
 func (t *WSTunnelClient) Stop() {
-	t.log.Function("Shutting down WS tunnel client and exiting.")
+	t.log.Info("Shutting down WS tunnel client and exiting.")
 	t.exitChan <- struct{}{}
 }
 
@@ -223,17 +223,17 @@ func (t *WSTunnelClient) Stop() {
 // return the result if any.
 func (wsc *WSConnection) handleRequests() {
 	log := wsc.tun.log
-	log.Functionf("Creating %s at %s", "wsc.pinger", agentlog.GetMyStack())
+	log.Infof("Creating %s at %s", "wsc.pinger", agentlog.GetMyStack())
 	go wsc.pinger()
 	for {
 		wsc.ws.SetReadDeadline(time.Time{}) // separate ping-pong routine does timeout
 		messageType, reader, err := wsc.ws.NextReader()
 		if err != nil {
-			log.Tracef("WS ReadMessage Error: %s", err.Error())
+			log.Debugf("WS ReadMessage Error: %s", err.Error())
 			break
 		}
 		if messageType != websocket.BinaryMessage {
-			log.Tracef("WS ReadMessage Invalid message type: %d", messageType)
+			log.Debugf("WS ReadMessage Invalid message type: %d", messageType)
 			break
 		}
 		// give the sender a minute to produce the request
@@ -242,7 +242,7 @@ func (wsc *WSConnection) handleRequests() {
 		var id int16
 		_, err = fmt.Fscanf(io.LimitReader(reader, 4), "%04x", &id)
 		if err != nil {
-			log.Tracef("WS cannot read request ID Error: %s", err.Error())
+			log.Debugf("WS cannot read request ID Error: %s", err.Error())
 			break
 		}
 		// read the whole message, this is bounded (to something large) by the
@@ -251,10 +251,10 @@ func (wsc *WSConnection) handleRequests() {
 		// websocket doesn't allow us to have multiple goroutines reading...
 		request, err := ioutil.ReadAll(reader)
 		if err != nil {
-			log.Tracef("[id=%d] WS cannot read request message Error: %s", id, err.Error())
+			log.Debugf("[id=%d] WS cannot read request message Error: %s", id, err.Error())
 			break
 		}
-		log.Tracef("[id=%d] WS processing request payload: %v", id, string(request))
+		log.Debugf("[id=%d] WS processing request payload: %v", id, string(request))
 
 		// Finish off while we read the next request
 		if len(request) > 0 {
@@ -262,14 +262,14 @@ func (wsc *WSConnection) handleRequests() {
 				log.Error(err)
 			}
 		} else {
-			log.Tracef("[id=%d] Encountered WS request to process with no payload", id)
+			log.Debugf("[id=%d] Encountered WS request to process with no payload", id)
 		}
 
 	}
 	// delay a few seconds to allow for writes to drain and then force-close the socket
-	log.Functionf("Creating %s at %s", "func", agentlog.GetMyStack())
+	log.Infof("Creating %s at %s", "func", agentlog.GetMyStack())
 	go func() {
-		log.Function("Closing websocket connection")
+		log.Info("Closing websocket connection")
 		time.Sleep(5 * time.Second)
 		wsc.ws.Close()
 	}()
@@ -285,7 +285,7 @@ func (wsc *WSConnection) pinger() {
 			log.Errorf("Panic in pinger: %s", x)
 		}
 	}()
-	log.Functionf("pinger starting for websocket connection to: %s", wsc.tun.DestURL)
+	log.Infof("pinger starting for websocket connection to: %s", wsc.tun.DestURL)
 	tunTimeout := wsc.tun.Timeout
 
 	// timeout handler sends a close message, waits a few seconds, then kills the socket
@@ -294,7 +294,7 @@ func (wsc *WSConnection) pinger() {
 			return
 		}
 		wsc.ws.WriteControl(websocket.CloseMessage, nil, time.Now().Add(1*time.Second))
-		log.Functionf("ping timeout, closing websocket connection to: %s", wsc.tun.DestURL)
+		log.Infof("ping timeout, closing websocket connection to: %s", wsc.tun.DestURL)
 		time.Sleep(15 * time.Second)
 		if wsc.ws != nil {
 			wsc.ws.Close()
@@ -321,7 +321,7 @@ func (wsc *WSConnection) pinger() {
 		}
 		time.Sleep(tunTimeout / 3)
 	}
-	log.Functionf("pinger ending (WS errored or closed) for destination: %s", wsc.tun.DestURL)
+	log.Infof("pinger ending (WS errored or closed) for destination: %s", wsc.tun.DestURL)
 	wsc.ws.Close()
 }
 
@@ -334,20 +334,20 @@ func (wsc *WSConnection) processRequest(id int16, req []byte) (err error) {
 	host := wsc.tun.LocalRelayServer
 	if wsc.localConnection == nil {
 		wsc.dialLocalConnection()
-		log.Functionf("Creating %s at %s", "wsc.ProcessResponse",
+		log.Infof("Creating %s at %s", "wsc.ProcessResponse",
 			agentlog.GetMyStack())
 		go wsc.processResponses()
 	}
 
-	log.Tracef("[id=%d] Forwarding request: %v to local connection: %s", id, string(req), host)
+	log.Debugf("[id=%d] Forwarding request: %v to local connection: %s", id, string(req), host)
 	for tries := 1; tries <= 3; tries++ {
 		_, err := wsc.localConnection.Write(req)
 		if err == nil {
-			log.Tracef("[id=%d] Completed writing request: \"%s\" to local connection",
+			log.Debugf("[id=%d] Completed writing request: \"%s\" to local connection",
 				id, string(req))
 			break
 		} else {
-			log.Tracef("[id=%d] Error encountered while writing request to local connection : %s",
+			log.Debugf("[id=%d] Error encountered while writing request to local connection : %s",
 				id, err.Error())
 			if err := wsc.refreshLocalConnection(true); err != nil {
 				return err
@@ -376,7 +376,7 @@ func (wsc *WSConnection) refreshLocalConnection(forceCreate bool) (err error) {
 			if err == io.EOF ||
 				err == io.ErrClosedPipe ||
 				err == io.ErrUnexpectedEOF {
-				log.Trace("Lost local server connection, reconnecting...")
+				log.Debug("Lost local server connection, reconnecting...")
 				if err := wsc.dialLocalConnection(); err != nil {
 					return err
 				}
@@ -400,14 +400,14 @@ func (wsc *WSConnection) dialLocalConnection() (err error) {
 		return
 	}
 
-	log.Tracef("Initializing local server connection: %s", host)
+	log.Debugf("Initializing local server connection: %s", host)
 	localConnection, err := net.Dial("tcp", host)
 	if err != nil {
 		log.Errorf("Could not connect to local server: %s, error: %s", host, err.Error())
 		return err
 	}
 	wsc.localConnection = localConnection
-	log.Tracef("Successfully connected to local server: %s", host)
+	log.Debugf("Successfully connected to local server: %s", host)
 	return nil
 }
 
@@ -417,7 +417,7 @@ func (wsc *WSConnection) processResponses() {
 
 	log := wsc.tun.log
 	host := wsc.tun.LocalRelayServer
-	log.Functionf("Processing responses from local relay: %s", host)
+	log.Infof("Processing responses from local relay: %s", host)
 
 	var id int64
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -427,7 +427,7 @@ func (wsc *WSConnection) processResponses() {
 		num, _ := wsc.localConnection.Read(responseBuffer)
 		if num > 0 {
 			response := responseBuffer[:num]
-			log.Tracef("[id=%d] Read local connection payload: %s", id, string(response))
+			log.Debugf("[id=%d] Read local connection payload: %s", id, string(response))
 
 			wsc.writeResponseMessage(id, bytes.NewBuffer(response))
 			id++
@@ -473,7 +473,7 @@ func (wsc *WSConnection) writeResponseMessage(id int64, resp *bytes.Buffer) {
 		wsc.ws.Close()
 		return
 	}
-	log.Tracef("[id=%d] Completed writing response of length: %d", id, num)
+	log.Debugf("[id=%d] Completed writing response of length: %d", id, num)
 
 	// done
 	err = writer.Close()

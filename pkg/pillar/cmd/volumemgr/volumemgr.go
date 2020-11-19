@@ -70,7 +70,7 @@ type volumemgrContext struct {
 	diskMetricsTickerHandle interface{}
 	gc                      *time.Ticker
 
-	worker *worker.Pool // For background work
+	worker *worker.Worker // For background work
 
 	verifierRestarted    bool // Wait for verifier to restart
 	contentTreeRestarted bool // Wait to receive all contentTree after restart
@@ -120,7 +120,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		globalConfig: types.DefaultConfigItemValueMap(),
 	}
 
-	log.Functionf("Starting %s", agentName)
+	log.Infof("Starting %s", agentName)
 
 	// Run a periodic timer so we always update StillRunning
 	stillRunning := time.NewTicker(25 * time.Second)
@@ -134,7 +134,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		Persistent:    true,
 		Activate:      false,
 		Ctx:           &ctx,
-		CreateHandler: handleGlobalConfigCreate,
+		CreateHandler: handleGlobalConfigModify,
 		ModifyHandler: handleGlobalConfigModify,
 		DeleteHandler: handleGlobalConfigDelete,
 		WarningTime:   warningTime,
@@ -147,7 +147,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 	subGlobalConfig.Activate()
 
 	// Create the background worker
-	ctx.worker = worker.NewPool(log, &ctx, 20, map[string]worker.Handler{
+	ctx.worker = worker.NewWorker(log, &ctx, 20, map[string]worker.Handler{
 		workCreate: {Request: volumeWorker, Response: processVolumeWorkResult},
 		workIngest: {Request: casIngestWorker, Response: processCasIngestWorkResult},
 	})
@@ -270,7 +270,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		TopicImpl:     types.ZedAgentStatus{},
 		Activate:      false,
 		Ctx:           &ctx,
-		CreateHandler: handleZedAgentStatusCreate,
+		CreateHandler: handleZedAgentStatusModify,
 		ModifyHandler: handleZedAgentStatusModify,
 		WarningTime:   warningTime,
 		ErrorTime:     errorTime,
@@ -288,7 +288,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		TopicImpl:     types.DownloaderStatus{},
 		Activate:      false,
 		Ctx:           &ctx,
-		CreateHandler: handleDownloaderStatusCreate,
+		CreateHandler: handleDownloaderStatusModify,
 		ModifyHandler: handleDownloaderStatusModify,
 		DeleteHandler: handleDownloaderStatusDelete,
 		WarningTime:   warningTime,
@@ -307,7 +307,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		TopicImpl:      types.VerifyImageStatus{},
 		Activate:       false,
 		Ctx:            &ctx,
-		CreateHandler:  handleVerifyImageStatusCreate,
+		CreateHandler:  handleVerifyImageStatusModify,
 		ModifyHandler:  handleVerifyImageStatusModify,
 		DeleteHandler:  handleVerifyImageStatusDelete,
 		RestartHandler: handleVerifierRestarted,
@@ -327,7 +327,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		TopicImpl:     types.ResolveStatus{},
 		Activate:      false,
 		Ctx:           &ctx,
-		CreateHandler: handleResolveStatusCreate,
+		CreateHandler: handleResolveStatusModify,
 		ModifyHandler: handleResolveStatusModify,
 		WarningTime:   warningTime,
 		ErrorTime:     errorTime,
@@ -409,7 +409,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 	subBaseOsContentTreeConfig.Activate()
 
 	subDatastoreConfig, err := ps.NewSubscription(pubsub.SubscriptionOptions{
-		CreateHandler: handleDatastoreConfigCreate,
+		CreateHandler: handleDatastoreConfigModify,
 		ModifyHandler: handleDatastoreConfigModify,
 		WarningTime:   warningTime,
 		ErrorTime:     errorTime,
@@ -425,7 +425,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 
 	// Pick up debug aka log level before we start real work
 	for !ctx.GCInitialized {
-		log.Functionf("waiting for GCInitialized")
+		log.Infof("waiting for GCInitialized")
 		select {
 		case change := <-subGlobalConfig.MsgChan():
 			subGlobalConfig.ProcessChange(change)
@@ -433,12 +433,12 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		}
 		ps.StillRunning(agentName, warningTime, errorTime)
 	}
-	log.Functionf("processed GlobalConfig")
+	log.Infof("processed GlobalConfig")
 
 	if err := utils.WaitForVault(ps, log, agentName, warningTime, errorTime); err != nil {
 		log.Fatal(err)
 	}
-	log.Functionf("processed Vault Status")
+	log.Infof("processed Vault Status")
 
 	// create the directories
 	initializeDirs()
@@ -482,7 +482,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		}
 		ps.StillRunning(agentName, warningTime, errorTime)
 	}
-	log.Functionf("Handling all inputs. Updating .touch file")
+	log.Infof("Handling all inputs. Updating .touch file")
 
 	// We will cleanup zero RefCount volumes which were present at boot
 	// after a while.
@@ -498,7 +498,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 
 	// start the metrics reporting task
 	diskMetricsTickerHandle := make(chan interface{})
-	log.Functionf("Creating %s at %s", "diskMetricsTimerTask", agentlog.GetMyStack())
+	log.Infof("Creating %s at %s", "diskMetricsTimerTask", agentlog.GetMyStack())
 
 	go diskMetricsTimerTask(&ctx, diskMetricsTickerHandle)
 	ctx.diskMetricsTickerHandle = <-diskMetricsTickerHandle
@@ -557,7 +557,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 
 //gcUnusedInitObjects this method will garbage collect all unused resource during init
 func gcUnusedInitObjects(ctx *volumemgrContext) {
-	log.Functionf("gcUnusedInitObjects")
+	log.Infof("gcUnusedInitObjects")
 	gcBlobStatus(ctx)
 	gcVerifyImageConfig(ctx)
 	gcImagesFromCAS(ctx)
@@ -566,31 +566,21 @@ func gcUnusedInitObjects(ctx *volumemgrContext) {
 func handleVerifierRestarted(ctxArg interface{}, done bool) {
 	ctx := ctxArg.(*volumemgrContext)
 
-	log.Functionf("handleVerifierRestarted(%v)", done)
+	log.Infof("handleVerifierRestarted(%v)", done)
 	if done {
 		ctx.verifierRestarted = true
 	}
 }
 
-func handleGlobalConfigCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleGlobalConfigImpl(ctxArg, key, statusArg)
-}
-
 func handleGlobalConfigModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleGlobalConfigImpl(ctxArg, key, statusArg)
-}
-
-func handleGlobalConfigImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
 	ctx := ctxArg.(*volumemgrContext)
 	if key != "global" {
-		log.Functionf("handleGlobalConfigImpl: ignoring %s", key)
+		log.Infof("handleGlobalConfigModify: ignoring %s", key)
 		return
 	}
-	log.Functionf("handleGlobalConfigImpl for %s", key)
+	log.Infof("handleGlobalConfigModify for %s", key)
 	var gcp *types.ConfigItemValueMap
 	debug, gcp = agentlog.HandleGlobalConfig(log, ctx.subGlobalConfig, agentName,
 		debugOverride, logger)
@@ -599,7 +589,7 @@ func handleGlobalConfigImpl(ctxArg interface{}, key string,
 		ctx.globalConfig = gcp
 		ctx.GCInitialized = true
 	}
-	log.Functionf("handleGlobalConfigImpl done for %s", key)
+	log.Infof("handleGlobalConfigModify done for %s", key)
 }
 
 func handleGlobalConfigDelete(ctxArg interface{}, key string,
@@ -607,27 +597,17 @@ func handleGlobalConfigDelete(ctxArg interface{}, key string,
 
 	ctx := ctxArg.(*volumemgrContext)
 	if key != "global" {
-		log.Functionf("handleGlobalConfigDelete: ignoring %s", key)
+		log.Infof("handleGlobalConfigDelete: ignoring %s", key)
 		return
 	}
-	log.Functionf("handleGlobalConfigDelete for %s", key)
+	log.Infof("handleGlobalConfigDelete for %s", key)
 	debug, _ = agentlog.HandleGlobalConfig(log, ctx.subGlobalConfig, agentName,
 		debugOverride, logger)
 	*ctx.globalConfig = *types.DefaultConfigItemValueMap()
-	log.Functionf("handleGlobalConfigDelete done for %s", key)
-}
-
-func handleZedAgentStatusCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleZedAgentStatusImpl(ctxArg, key, statusArg)
+	log.Infof("handleGlobalConfigDelete done for %s", key)
 }
 
 func handleZedAgentStatusModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleZedAgentStatusImpl(ctxArg, key, statusArg)
-}
-
-func handleZedAgentStatusImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
 	ctx := ctxArg.(*volumemgrContext)
@@ -641,13 +621,13 @@ func handleZedAgentStatusImpl(ctxArg interface{}, key string,
 }
 
 func maybeUpdateConfigItems(ctx *volumemgrContext, newConfigItemValueMap *types.ConfigItemValueMap) {
-	log.Functionf("maybeUpdateConfigItems")
+	log.Infof("maybeUpdateConfigItems")
 	oldConfigItemValueMap := ctx.globalConfig
 
 	if newConfigItemValueMap.GlobalValueInt(types.VdiskGCTime) != 0 &&
 		newConfigItemValueMap.GlobalValueInt(types.VdiskGCTime) !=
 			oldConfigItemValueMap.GlobalValueInt(types.VdiskGCTime) {
-		log.Functionf("maybeUpdateConfigItems: Updating vdiskGCTime from %d to %d",
+		log.Infof("maybeUpdateConfigItems: Updating vdiskGCTime from %d to %d",
 			oldConfigItemValueMap.GlobalValueInt(types.VdiskGCTime),
 			newConfigItemValueMap.GlobalValueInt(types.VdiskGCTime))
 		ctx.vdiskGCTime = newConfigItemValueMap.GlobalValueInt(types.VdiskGCTime)
@@ -656,7 +636,7 @@ func maybeUpdateConfigItems(ctx *volumemgrContext, newConfigItemValueMap *types.
 	if newConfigItemValueMap.GlobalValueInt(types.DiskScanMetricInterval) != 0 &&
 		newConfigItemValueMap.GlobalValueInt(types.DiskScanMetricInterval) !=
 			oldConfigItemValueMap.GlobalValueInt(types.DiskScanMetricInterval) {
-		log.Functionf("maybeUpdateConfigItems: Updating DiskScanMetricInterval from %d to %d",
+		log.Infof("maybeUpdateConfigItems: Updating DiskScanMetricInterval from %d to %d",
 			oldConfigItemValueMap.GlobalValueInt(types.DiskScanMetricInterval),
 			newConfigItemValueMap.GlobalValueInt(types.DiskScanMetricInterval))
 		if ctx.diskMetricsTickerHandle == nil {

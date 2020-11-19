@@ -7,9 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lf-edge/eve/pkg/pillar/base"
 	"github.com/lf-edge/eve/pkg/pillar/worker"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 func Example_workerprocess() {
@@ -36,8 +35,7 @@ func Example_workerprocess() {
 	}
 
 	// create a new worker that can handle jobs of Kind "install"
-	logObject := base.NewSourceLogObject(logrus.StandardLogger(), "test", 1234)
-	work := worker.NewWorker(logObject, ctx, 5, map[string]worker.Handler{
+	work := worker.NewWorker(log.New(), ctx, 5, map[string]worker.Handler{
 		kind: {Request: installWorker, Response: processInstallWorkResult},
 	})
 
@@ -45,11 +43,11 @@ func Example_workerprocess() {
 	// what happened when we submitted?
 	if err != nil {
 		if _, ok := err.(*worker.JobInProgressError); ok {
-			logrus.Fatal("job already in progress")
+			log.Fatal("job already in progress")
 		}
-		logrus.Fatalf("unknown error: %v\n", err)
+		log.Fatalf("unknown error: %v\n", err)
 	}
-	logrus.Info("job submitted")
+	log.Info("job submitted")
 	// nothing to do now, wait for the result
 forloop:
 	for {

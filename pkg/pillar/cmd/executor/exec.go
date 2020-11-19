@@ -83,7 +83,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 	if err := pidfile.CheckAndCreatePidfile(log, agentName); err != nil {
 		log.Fatal(err)
 	}
-	log.Functionf("Starting %s", agentName)
+	log.Infof("Starting %s", agentName)
 
 	// Run a periodic timer so we always update StillRunning
 	stillRunning := time.NewTicker(25 * time.Second)
@@ -109,7 +109,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		TopicImpl:     types.ConfigItemValueMap{},
 		Persistent:    true,
 		Ctx:           &execCtx,
-		CreateHandler: handleGlobalConfigCreate,
+		CreateHandler: handleGlobalConfigModify,
 		ModifyHandler: handleGlobalConfigModify,
 		DeleteHandler: handleGlobalConfigDelete,
 		WarningTime:   warningTime,
@@ -123,7 +123,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 
 	// Pick up debug aka log level before we start real work
 	for !execCtx.GCInitialized {
-		log.Functionf("waiting for GCInitialized")
+		log.Infof("waiting for GCInitialized")
 		select {
 		case change := <-subGlobalConfig.MsgChan():
 			subGlobalConfig.ProcessChange(change)
@@ -131,7 +131,7 @@ func Run(ps *pubsub.PubSub, loggerArg *logrus.Logger, logArg *base.LogObject) in
 		}
 		ps.StillRunning(agentName, warningTime, errorTime)
 	}
-	log.Functionf("processed GlobalConfig")
+	log.Infof("processed GlobalConfig")
 
 	subTmpConfig, err := ps.NewSubscription(pubsub.SubscriptionOptions{
 		AgentName:     "",
@@ -238,12 +238,12 @@ func handleCreate(ctxArg interface{}, key string,
 
 	execCtx := ctxArg.(*executorContext)
 	config := configArg.(types.ExecConfig)
-	log.Functionf("handleCreate(%s.%d) %s",
+	log.Infof("handleCreate(%s.%d) %s",
 		config.Caller, config.Sequence, config.Command)
 	status := launchCmd(execCtx, config)
 	if status != nil {
 		execCtx.pubExecStatus.Publish(status.Key(), *status)
-		log.Functionf("handleCreate(%s.%d) Done",
+		log.Infof("handleCreate(%s.%d) Done",
 			config.Caller, config.Sequence)
 	} else {
 		log.Warnf("handleCreate(%s.%d) No status",
@@ -252,30 +252,30 @@ func handleCreate(ctxArg interface{}, key string,
 }
 
 func handleModify(ctxArg interface{}, key string,
-	configArg interface{}, oldConfigArg interface{}) {
+	configArg interface{}) {
 
 	execCtx := ctxArg.(*executorContext)
 	config := configArg.(types.ExecConfig)
 	status := lookupExecStatus(execCtx, key)
 	if config.Sequence == status.Sequence {
-		log.Functionf("handleModify(%s.%d) no change",
+		log.Infof("handleModify(%s.%d) no change",
 			config.Caller, config.Sequence)
 		return
 	}
-	log.Functionf("handleModify(%s.%d) %s",
+	log.Infof("handleModify(%s.%d) %s",
 		config.Caller, config.Sequence, config.Command)
 	status = launchCmd(execCtx, config)
 	if status != nil {
 		if config.DontWait {
-			log.Functionf("handleModify(%s.%d) Done with DontWait",
+			log.Infof("handleModify(%s.%d) Done with DontWait",
 				config.Caller, config.Sequence)
 		} else {
 			execCtx.pubExecStatus.Publish(status.Key(), *status)
-			log.Functionf("handleModify(%s.%d) Done",
+			log.Infof("handleModify(%s.%d) Done",
 				config.Caller, config.Sequence)
 		}
 	} else {
-		log.Functionf("handleModify(%s.%d) No status",
+		log.Infof("handleModify(%s.%d) No status",
 			config.Caller, config.Sequence)
 	}
 }
@@ -285,12 +285,12 @@ func handleDelete(ctxArg interface{}, key string,
 
 	execCtx := ctxArg.(*executorContext)
 	config := configArg.(types.ExecConfig)
-	log.Functionf("handleDelete(%s.%d) %s",
+	log.Infof("handleDelete(%s.%d) %s",
 		config.Caller, config.Sequence, config.Command)
 	status := lookupExecStatus(execCtx, key)
 	if status != nil {
 		execCtx.pubExecStatus.Unpublish(status.Key())
-		log.Functionf("handleDelete(%s.%d) Done",
+		log.Infof("handleDelete(%s.%d) Done",
 			config.Caller, config.Sequence)
 	} else {
 		log.Warnf("handleDelete(%s.%d) No status",
@@ -308,7 +308,7 @@ func lookupExecStatus(execCtx *executorContext, key string) *types.ExecStatus {
 }
 
 func launchCmd(execCtx *executorContext, config types.ExecConfig) *types.ExecStatus {
-	log.Functionf("launchCmd %+v", config)
+	log.Infof("launchCmd %+v", config)
 	status := types.ExecStatus{
 		Caller:   config.Caller,
 		Sequence: config.Sequence,
@@ -341,7 +341,7 @@ func launchCmd(execCtx *executorContext, config types.ExecConfig) *types.ExecSta
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			// The program has exited with an exit code != 0
 			if exitStatus, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				log.Functionf("Exit code: %d", exitStatus.ExitStatus())
+				log.Infof("Exit code: %d", exitStatus.ExitStatus())
 				status.ExitValue = exitStatus.ExitStatus()
 			} else {
 				log.Warnf("No exitStatus but %T: %s",
@@ -362,36 +362,27 @@ func launchCmd(execCtx *executorContext, config types.ExecConfig) *types.ExecSta
 		return &status
 	}
 	status.Output = string(out)
-	log.Functionf("Succeeded %+v", status)
+	log.Infof("Succeeded %+v", status)
 	return &status
 }
 
-func handleGlobalConfigCreate(ctxArg interface{}, key string,
-	statusArg interface{}) {
-	handleGlobalConfigImpl(ctxArg, key, statusArg)
-}
-
+// Handles both create and modify events
 func handleGlobalConfigModify(ctxArg interface{}, key string,
-	statusArg interface{}, oldStatusArg interface{}) {
-	handleGlobalConfigImpl(ctxArg, key, statusArg)
-}
-
-func handleGlobalConfigImpl(ctxArg interface{}, key string,
 	statusArg interface{}) {
 
 	execCtx := ctxArg.(*executorContext)
 	if key != "global" {
-		log.Functionf("handleGlobalConfigImpl: ignoring %s", key)
+		log.Infof("handleGlobalConfigModify: ignoring %s", key)
 		return
 	}
-	log.Functionf("handleGlobalConfigImpl for %s", key)
+	log.Infof("handleGlobalConfigModify for %s", key)
 	var gcp *types.ConfigItemValueMap
 	execCtx.debug, gcp = agentlog.HandleGlobalConfig(log, execCtx.subGlobalConfig, agentName,
 		execCtx.debugOverride, logger)
 	if gcp != nil {
 		execCtx.GCInitialized = true
 	}
-	log.Functionf("handleGlobalConfigImpl done for %s", key)
+	log.Infof("handleGlobalConfigModify done for %s", key)
 }
 
 func handleGlobalConfigDelete(ctxArg interface{}, key string,
@@ -399,11 +390,11 @@ func handleGlobalConfigDelete(ctxArg interface{}, key string,
 
 	execCtx := ctxArg.(*executorContext)
 	if key != "global" {
-		log.Functionf("handleGlobalConfigDelete: ignoring %s", key)
+		log.Infof("handleGlobalConfigDelete: ignoring %s", key)
 		return
 	}
-	log.Functionf("handleGlobalConfigDelete for %s", key)
+	log.Infof("handleGlobalConfigDelete for %s", key)
 	execCtx.debug, _ = agentlog.HandleGlobalConfig(log, execCtx.subGlobalConfig, agentName,
 		execCtx.debugOverride, logger)
-	log.Functionf("handleGlobalConfigDelete done for %s", key)
+	log.Infof("handleGlobalConfigDelete done for %s", key)
 }
