@@ -1,0 +1,175 @@
+#!/bin/bash
+#########################################################
+#                                                       #
+#                      ARGUMENTS                        #
+#                                                       #
+#########################################################
+IMGFILE=$1 # output image                               #
+BOARD=$2 # board name                                   #
+#########################################################
+PARTS_DIR=/parts                                        #
+PARTS_EFI_DIR=$PARTS_DIR/EFI                            #
+PARTS_TEGRA_DIR=$PARTS_DIR/preseted/tegra               #
+PARTS_BOARD_DIR=$PARTS_TEGRA_DIR/$BOARD                 #
+PARTS_TEGRA_FILE=$PARTS_BOARD_DIR/partitions.txt        #
+#########################################################
+#                                                       #
+#                   PARTITIONS INFO                     #
+#                                                       #
+######################### EFI ###########################
+EFI_PART_SIZE=$((36 * 1024 * 1024))                     #
+####################### ROOTFS ##########################
+ROOTFS_PART_IMG_SIZE=$(( 300 * 1024 * 1024 ))           #
+ROOTFS_PART_IMG=/parts/rootfs.img                       #
+######################## CONF ###########################
+CONF_PART_IMG_SIZE=$((1024 * 1024))                     #
+CONF_PART_IMG=/parts/config.img                         #
+####################### SHARED ##########################
+PARTITIONS_COUNT=0                                      #
+PARTITIONS_INFO= # array of partititions                #
+PARTITIONS_INFO_STR= # string of partititions           #
+#########################################################
+#                                                       #
+#                        OTHER                          #
+#                                                       #
+#########################################################
+SCRIPT_NAME="$(basename "${0}")"                        #
+BLOCK_SIZE=512                                          #
+IMGFILE_SIZE=                                           #
+#########################################################
+
+function cleanup() {
+  set +e
+}
+trap cleanup EXIT
+
+function add_to_partitions_str() {
+  string=$1
+  PARTITIONS_INFO_STR=$(echo "$PARTITIONS_INFO_STR" && echo "$string")
+}
+
+function partitions_str_to_array() {
+  PARTITIONS_INFO=()
+  while IFS=$'\n' read -r line; do PARTITIONS_INFO+=("$line"); done < <(echo "$PARTITIONS_INFO_STR")
+}
+
+function add_part_info() {
+  part_num=$1
+  part_name=$2
+  part_size=$3
+  part_file=$4
+  part_type=$5
+  add_to_partitions_str "part_num=$part_num;part_name=$part_name;part_size=$part_size;part_file=$part_file;part_type=$part_type"
+  partitions_str_to_array
+  PARTITIONS_COUNT=$((PARTITIONS_COUNT+1))
+}
+
+function load_preseted_parts_info() {
+  PARTITIONS_INFO_STR=$(cat $PARTS_TEGRA_FILE)
+  partitions_str_to_array
+  PARTITIONS_COUNT=$(echo "$PARTITIONS_INFO_STR" | wc -l)
+}
+
+function dir2vfat() {
+  # <img name> dir2vfat <dir> <image size in kb> [label]
+  IMG=$(mktemp -u -p /tmp/data)
+  local LABEL=${3:-EFI}
+  local FORCE_FAT32="-F32"
+  # FAT32 can only reside on disks larger than 33Mb
+  [ "$2" -lt 33792 ] && FORCE_FAT32="-v"
+  (rm -rf /tmp/data
+  mkdir /tmp/data
+  mkfs.vfat "$FORCE_FAT32" -v -n "$LABEL" -C "$IMG" "$2"
+  mcopy -i "$IMG" -s "$1"/* ::/ ) >&2
+  echo "$IMG"
+}
+
+function mkefifs() {
+  rm -rf /efifs
+  mkdir /efifs
+  cp -Lr "$PARTS_EFI_DIR" /efifs/EFI
+}
+
+function create_raw_image()
+{
+  # Calculate raw image size by accumulating partition size with 1MB (2048-sector * 512) round up and plus 2MB for GPTs
+  IMGFILE_SIZE=$(echo "$PARTITIONS_INFO_STR" | awk -F'[=;]' '{sum += (int($6 / (2048 * 512)) + 1)} END {printf "%dM\n", sum + 2}')
+  echo "${SCRIPT_NAME} - creating ${IMGFILE} of ${IMGFILE_SIZE}..."
+  dd if=/dev/zero of="${IMGFILE}" bs=1 count=0 seek="${IMGFILE_SIZE}"
+}
+
+function write_partitions_table()
+{
+  sgdisk -og "${IMGFILE}"
+  for part in "${PARTITIONS_INFO[@]}"; do
+    eval "${part}"
+
+    if [ "$part_type" == "" ]; then
+      part_type=8300 # Linux Filesystem
+    fi
+
+    part_size=$((part_size / BLOCK_SIZE)) # convert size to sectors
+    sgdisk -n "${part_num}":0:+"${part_size}" -c "${part_num}":"${part_name}" -t "${part_num}":"${part_type}" "${IMGFILE}"
+  done
+}
+
+function load_starts_of_partitions() {
+  parts_starts=()
+  while IFS=$'\n' read -r line; do parts_starts+=("$line"); done \
+  < <(sfdisk -d "${IMGFILE}" | grep -i start | cut -f1 -d, | sed -e "s#${IMGFILE}#part_num=#g" -e 's/ //g' -e 's/:/;/g' -e 's/start/part_start/g')
+  for part in "${parts_starts[@]}"; do
+    eval "${part}"
+    PARTITIONS_INFO_STR=${PARTITIONS_INFO_STR//"part_num=${part_num};"/"part_num=${part_num};part_start=${part_start};"}
+  done
+  partitions_str_to_array
+  echo "$PARTITIONS_INFO_STR"
+}
+
+function write_partitions()
+{
+  echo "${SCRIPT_NAME}: write partitions"
+  for index in ${!PARTITIONS_INFO[*]}; do
+    part=${PARTITIONS_INFO[$index]}
+    eval "$part"
+
+    target_file=""
+    if [ -e "${part_file}" ]; then
+        target_file="${part_file}"
+    elif [ -e "${PARTS_TEGRA_DIR}/$BOARD/${part_file}" ]; then
+      target_file="${PARTS_TEGRA_DIR}/$BOARD/${part_file}"
+    elif [ -e "${PARTS_DIR}/${part_file}" ]; then
+      target_file="${PARTS_DIR}/${part_file}"
+    fi;
+
+    if [ "${target_file}" != "" ] && [ "${part_file}" != "" ]; then
+      dd if="${target_file}" of="$IMGFILE" bs=512 conv=notrunc seek="$part_start"
+    fi
+  done
+}
+
+function setup_efi_grub() {
+  root_dev="hd0,gpt$1"
+  dtb_name=$2
+  # make dir /efifs with efi grub
+  mkefifs
+  mkdir -p /tmp/
+  touch /tmp/grub.cfg
+  # Setup correct device tree blob and path to eve grub.cfg
+  echo "set root=${root_dev}" >> /tmp/grub.cfg
+  # In the U-Boot UEFI implementation, the dtb for the kernel is automatically taken from u-boot, but the u-boot dtb and the kernel dtb are different,
+  # we need to set the correct kernel dtb for each nvidia device.
+  (echo "set root=${root_dev}"; echo "devicetree (${root_dev})/boot/dtb/nvidia/${dtb_name}"; echo "configfile (${root_dev})/EFI/BOOT/grub.cfg") > /tmp/grub.cfg
+  cp /tmp/grub.cfg /efifs/EFI/BOOT/grub.cfg
+}
+
+load_preseted_parts_info
+setup_efi_grub 16 tegra210-p3450-0000.dtb
+# Write EFI to partition with id 1, this is APP partition
+add_part_info 1 EFI "$EFI_PART_SIZE" "$(dir2vfat /efifs $((EFI_PART_SIZE / 1024)))" C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+add_part_info $((PARTITIONS_COUNT+1)) CONFIG $CONF_PART_IMG_SIZE $CONF_PART_IMG 13307e62-cd9c-4920-8f9b-91b45828b798
+add_part_info $((PARTITIONS_COUNT+1)) IMGA $ROOTFS_PART_IMG_SIZE $ROOTFS_PART_IMG 5dfbf5f4-2848-4bac-aa5e-0d9a20b745a6
+create_raw_image
+write_partitions_table
+load_starts_of_partitions
+write_partitions
+sgdisk -v "$IMGFILE"

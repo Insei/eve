@@ -103,6 +103,7 @@ INITRD_IMG=$(INSTALLER)/initrd.img
 PERSIST_IMG=$(INSTALLER)/persist.img
 EFI_PART=$(INSTALLER)/EFI
 BOOT_PART=$(INSTALLER)/boot
+PRESETED_PARTS=$(INSTALLER)/preseted
 
 DEVICETREE_DTB_amd64=
 DEVICETREE_DTB_arm64=$(DIST)/dtb/eve.dtb
@@ -291,6 +292,9 @@ $(BOOT_PART): $(LINUXKIT) | $(INSTALLER)
 $(INITRD_IMG): $(LINUXKIT) | $(INSTALLER)
 	cd $| ; $(DOCKER_UNPACK) $(shell $(LINUXKIT) pkg show-tag pkg/mkimage-raw-efi)-$(DOCKER_ARCH_TAG) $(notdir $@ $(EFI_PART))
 
+$(PRESETED_PARTS): $(LINUXKIT) | $(INSTALLER)
+	cd $| ; $(DOCKER_UNPACK) $(shell $(LINUXKIT) pkg show-tag pkg/preseted-parts) $(notdir $@)
+
 # run-installer
 #
 # This creates an image equivalent to live.img (called target.img)
@@ -409,8 +413,11 @@ $(ROOTFS)-%.img: $(ROOTFS_FULL_NAME)-%-$(ZARCH).$(ROOTFS_FORMAT)
 $(ROOTFS_IMG): $(ROOTFS)-$(HV).img
 	@rm -f $@ && ln -s $(notdir $<) $@
 
-$(LIVE).raw: $(BOOT_PART) $(EFI_PART) $(ROOTFS_IMG) $(CONFIG_IMG) $(PERSIST_IMG) | $(INSTALLER)
-	./tools/makeflash.sh -C 350 $| $@ $(PART_SPEC)
+$(LIVE).raw: $(PRESETED_PARTS) $(EFI_PART) $(ROOTFS_IMG) $(CONFIG_IMG) $(PERSIST_IMG) | $(INSTALLER)
+	./tools/maketegraflash.sh -C 350 $| $@ nvidia-jetson-nano-b
+
+$(LIVE).nvidia-jetson-nano-b: $(PRESETED_PARTS) $(EFI_PART) $(ROOTFS_IMG) $(CONFIG_IMG) $(PERSIST_IMG) | $(INSTALLER)
+	./tools/maketegraflash.sh -C 350 $| $@ nvidia-jetson-nano-b
 
 $(INSTALLER).raw: $(EFI_PART) $(ROOTFS_IMG) $(INITRD_IMG) $(CONFIG_IMG) $(PERSIST_IMG) | $(INSTALLER)
 	./tools/makeflash.sh -C 350 $| $@ "conf_win installer inventory_win"

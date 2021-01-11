@@ -1,0 +1,3 @@
+org: lfedge
+image: eve-mkimage-raw-tegra
+network: yes
