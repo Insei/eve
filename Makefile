@@ -103,6 +103,7 @@ INITRD_IMG=$(INSTALLER)/initrd.img
 PERSIST_IMG=$(INSTALLER)/persist.img
 EFI_PART=$(INSTALLER)/EFI
 BOOT_PART=$(INSTALLER)/boot
+PRESETED_PARTS=$(INSTALLER)/preseted
 
 DEVICETREE_DTB_amd64=
 DEVICETREE_DTB_arm64=$(DIST)/dtb/eve.dtb
@@ -290,6 +291,9 @@ $(BOOT_PART): $(LINUXKIT) | $(INSTALLER)
 
 $(INITRD_IMG): $(LINUXKIT) | $(INSTALLER)
 	cd $| ; $(DOCKER_UNPACK) $(shell $(LINUXKIT) pkg show-tag pkg/mkimage-raw-efi)-$(DOCKER_ARCH_TAG) $(notdir $@ $(EFI_PART))
+
+$(PRESETED_PARTS): $(LINUXKIT) | $(INSTALLER)
+	cd $| ; $(DOCKER_UNPACK) $(shell $(LINUXKIT) pkg show-tag pkg/preseted-parts) $(notdir $@)
 
 # run-installer
 #
