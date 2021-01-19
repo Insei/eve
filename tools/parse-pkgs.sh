@@ -87,6 +87,7 @@ sed -e '/-.*linuxkit\/.*:/s# *$#'${ARCH}# \
     -e "s#EVE_TAG#${EVE_TAG}#" \
     -e "s#KVMTOOLS_TAG#${KVMTOOLS_TAG}#" \
     -e "s#PRESETED_PARTS_TAG#${PRESETED_PARTS_TAG}#" \
+    -e "s#MKRAWFORTARGET_TAG#${MKRAWFORTARGET_TAG}#" \
     ${1:-}
 }
 
@@ -134,6 +135,7 @@ VTPM_TAG=$(linuxkit_tag pkg/vtpm)
 UEFI_TAG=$(linuxkit_tag pkg/uefi)
 KVMTOOLS_TAG=$(linuxkit_tag pkg/kvm-tools)
 PRESETED_PARTS_TAG=$(linuxkit_tag pkg/preseted-parts)
+MKRAWFORTARGET_TAG=$(linuxkit_tag pkg/mkimage-raw-for-target)
 
 # Synthetic tags: the following tags are based on hashing
 # the contents of all the Dockerfile.in that we can find.
