@@ -48,7 +48,7 @@ dump() {
 
 do_help() {
 cat <<__EOT__
-Usage: docker run lfedge/eve [-f fmt] version|rootfs|live|installer_raw|installer_iso|installer_net
+Usage: docker run lfedge/eve [-f fmt] [-b board] version|rootfs|live|installer_raw|installer_iso|installer_net
 
 The artifact will be produced on stdout, so don't forget to redirect it to a file.
 
@@ -79,6 +79,13 @@ do_version() {
   echo /bits/*.squash | sed -e 's#/bits/rootfs-##' -e 's#.squash##' >&3
 }
 
+create_raw_for_target() {
+  rm -rf /parts
+  ln -s /bits /parts
+  touch "$OUTPUT_IMG"
+  /make-raw-for-target "$OUTPUT_IMG" "$TARGET" "$1"
+}
+
 do_live() {
   PART_SPEC="efi conf imga"
   [ -d /bits/boot ] && PART_SPEC="boot conf imga"
@@ -92,7 +99,11 @@ do_live() {
      IMAGE_UUID=$(uuidgen | tee /tmp/soft_serial)
      mcopy -o -i /bits/config.img /tmp/soft_serial ::/soft_serial
   fi
-  create_efi_raw "${1:-350}" "$PART_SPEC"
+  if [ -n "$TARGET" ]; then
+    create_raw_for_target "${1:-350}"
+  else
+    create_efi_raw "${1:-350}" "$PART_SPEC"
+  fi
   dump "$OUTPUT_IMG" live.raw
   echo "$IMAGE_UUID" >&2
 }
@@ -138,6 +149,15 @@ while true; do
           fi
           shift
           [ "$FMT" != "raw" ] && [ "$FMT" != "gcp" ] && [ "$FMT" != "qcow2" ] && [ "$FMT" != "parallels" ] && [ "$FMT" != "vdi" ] && bail "Unknown format: $FMT"
+          ;;
+    -t*) #shellcheck disable=SC2039
+          TARGET="${1/-t/}"
+          if [ -z "$TARGET" ]; then
+             TARGET="$2"
+             shift
+          fi
+          shift
+          [ "$TARGET" != "jetson-nano-b" ] && bail "Unknown target: $TARGET"
           ;;
        *) break
           ;;
