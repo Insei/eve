@@ -8,10 +8,13 @@ FROM MKRAW_TAG as raw
 # we need to get rid of embedded initrd since we will get it from outside
 RUN rm /initrd.img
 # hadolint ignore=DL3006
+FROM MKRAWFORTARGET_TAG as raw-for-target
+# hadolint ignore=DL3006
 FROM MKCONF_TAG as conf
 
 COPY --from=iso / /
 COPY --from=raw / /
+COPY --from=raw-for-target / /
 COPY --from=tools /out/ /
 COPY installer /bits
 COPY OVMF* /firmware/
