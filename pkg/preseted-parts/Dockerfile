@@ -44,9 +44,8 @@ RUN set -e ; for patch in /wd/patches/*.patch; do \
 
 # Make jetson nano sdcard signed parts
 RUN BOARDID=3448 BOARDSKU='' FAB=300 ./flash.sh --no-flash --no-systemimg --sign jetson-nano-qspi-sd mmcblk0p1
-# Parse partitions and remove APP partition from parsed layout
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
-RUN tools/nvptparser.py bootloader/signed/flash.xml sdcard | head -n -1 > bootloader/signed/partitions.txt
+RUN tools/nvptparser.py bootloader/signed/flash.xml sdcard > bootloader/signed/partitions.txt
 RUN mkdir $WD/parts/jetson-nano-b && cp bootloader/signed/* $WD/parts/jetson-nano-b/
 RUN cp bootloader/eks.img bootloader/bmp.blob bootloader/rp4.blob $WD/parts/jetson-nano-b/
 
