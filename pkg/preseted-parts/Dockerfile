@@ -19,25 +19,27 @@ RUN ln -sf python3 /usr/bin/python
 
 ARG WD=/wd
 
-ARG BSP_T210_LINK=https://developer.download.nvidia.com/embedded/L4T/r32_Release_v4.4/r32_Release_v4.4-GMC3/T210/Tegra210_Linux_R32.4.4_aarch64.tbz2
-ARG BSP_T210_FILE=$WD/Tegra210_Linux_R32.4.4_aarch64.tbz2
-ARG BSP_T210_FOLDER=$WD/L4T_210
 
 RUN echo "mtools_skip_check=1" >> etc/mtools.conf
 WORKDIR $WD/
 COPY patches patches
+
+# NVIDIA TEGRA PARTS
+ARG BSP_T210_LINK=https://developer.download.nvidia.com/embedded/L4T/r32_Release_v4.4/r32_Release_v4.4-GMC3/T210/Tegra210_Linux_R32.4.4_aarch64.tbz2
+ARG BSP_T210_FILE=$WD/Tegra210_Linux_R32.4.4_aarch64.tbz2
+ARG BSP_T210_FOLDER=$WD/L4T_210
 
 RUN wget "$BSP_T210_LINK" -O "$BSP_T210_FILE"
 RUN mkdir "$BSP_T210_FOLDER" && tar xpf "$BSP_T210_FILE" -C "$BSP_T210_FOLDER"
 RUN mkdir parts
 
 # TODO: build from source in u-boot package.
-# replace jetson-nano-b u-boot.bin binnary to new version.
+# replace nvidia jetson-nano-b u-boot.bin binary to new version.
 COPY jetson-nano-b/u-boot.bin $BSP_T210_FOLDER/Linux_for_Tegra/bootloader/t210ref/p3450-porg/u-boot.bin
 
-# Apply local patches
+# Apply local t210 bsp patches
 WORKDIR $BSP_T210_FOLDER/Linux_for_Tegra
-RUN set -e ; for patch in /wd/patches/*.patch; do \
+RUN set -e ; for patch in /wd/patches/tegra/t210/bsp/*.patch; do \
         echo "Applying $patch"; \
         patch -p1 < "$patch"; \
     done
@@ -46,17 +48,19 @@ RUN set -e ; for patch in /wd/patches/*.patch; do \
 RUN BOARDID=3448 BOARDSKU='' FAB=300 ./flash.sh --no-flash --no-systemimg --sign jetson-nano-qspi-sd mmcblk0p1
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 RUN tools/nvptparser.py bootloader/signed/flash.xml sdcard > bootloader/signed/partitions.txt
-RUN mkdir $WD/parts/jetson-nano-b && cp bootloader/signed/* $WD/parts/jetson-nano-b/
-RUN cp bootloader/eks.img bootloader/bmp.blob bootloader/rp4.blob $WD/parts/jetson-nano-b/
+RUN mkdir -p $WD/parts/tegra/jetson-nano-b && cp bootloader/signed/* bootloader/eks.img bootloader/bmp.blob bootloader/rp4.blob $WD/parts/tegra/jetson-nano-b/
 
 # Clean UP TEGRA BSP
 WORKDIR $WD/
 RUN rm -rf $BSP_T210_FOLDER
 RUN rm -rf $BSP_T210_FILE
+# END OF NVIDIA TEGRA PARTS
+
+
 RUN rm -rf patches
 
 FROM scratch
 ENTRYPOINT []
 CMD []
 WORKDIR /preseted
-COPY --from=build /wd/parts ./tegra
+COPY --from=build /wd/parts .
