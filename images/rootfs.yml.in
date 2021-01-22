@@ -1,5 +1,5 @@
 kernel:
-  image: NEW_KERNEL_TAG
+  image: goodmobiledevices/eve-new-kernel:81cc959669f5f4645298ab656eeb9fd131d3f729-dirty-arm64
   cmdline: "rootdelay=3"
 init:
   - linuxkit/init:a68f9fa0c1d9dbfc9c23663749a0b7ac510cbe1c
@@ -8,7 +8,7 @@ init:
   - linuxkit/getty:v0.5
   - linuxkit/memlogd:v0.5
   - GRUB_TAG
-  - FW_TAG
+  - goodmobiledevices/eve-fw:d7f7d1e72a3c2a67bb8c522fa50576241ee15d12-dirty-arm64
   - XEN_TAG
   - GPTTOOLS_TAG
   - DOM0ZTOOLS_TAG
