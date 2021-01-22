@@ -1,4 +1,4 @@
-org: lfedge
+org: goodmobiledevices
 image: eve-mkimage-raw-efi
 network: yes
 
