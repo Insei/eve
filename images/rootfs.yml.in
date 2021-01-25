@@ -8,7 +8,7 @@ init:
   - linuxkit/getty:v0.5
   - linuxkit/memlogd:v0.5
   - GRUB_TAG
-  - FW_TAG
+  - goodmobiledevices/eve-fw:d7f7d1e72a3c2a67bb8c522fa50576241ee15d12-dirty-arm64
   - XEN_TAG
   - GPTTOOLS_TAG
   - DOM0ZTOOLS_TAG
