@@ -41,6 +41,7 @@ function make_parts() {
   if [ "$BOARD" == "jetson-nano-b" ]; then
     # replace nvidia jetson-nano-b u-boot.bin binary to new version.
     cp "$NVIDIA_BSP_T210_DIR/$BOARD/u-boot.bin" "$NVIDIA_BSP_T210_L4T_DIR/bootloader/t210ref/p3450-porg/u-boot.bin"
+    cp "$NVIDIA_BSP_T210_DIR/$BOARD/tegra210-p3450-0000.dtb" "$NVIDIA_BSP_T210_L4T_DIR/kernel/dtb/tegra210-p3448-0000-p3449-0000-b00.dtb"
     cd "$NVIDIA_BSP_T210_L4T_DIR" || return
     BOARDID=3448 BOARDSKU='' FAB=300 ./flash.sh --no-flash --no-systemimg --sign jetson-nano-qspi-sd mmcblk0p1
     tools/nvptparser.py bootloader/signed/flash.xml sdcard > bootloader/signed/partitions.txt
