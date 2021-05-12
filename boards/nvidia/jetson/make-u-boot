@@ -10,9 +10,9 @@ UBOOR_SRC_DIR="$UBOOT_DIR"/src
 
 function cleanup() {
   set +e
-  rm -rf "$UBOOR_SRC_DIR"
+  #rm -rf "$UBOOR_SRC_DIR"
 }
-trap cleanup EXIT
+#trap cleanup EXIT
 
 mkdir -p "$UBOOT_DIR"
 curl -fsSL "$SOURCE_URL" | tar -C "$UBOOT_DIR"/ -xzf - && rm -rf "$UBOOR_SRC_DIR" && mv "$UBOOT_DIR"/u-boot* "$UBOOR_SRC_DIR"
@@ -35,11 +35,18 @@ function apply_patches() {
 }
 
 apply_patches
-# jetson-nano-b00
+# Jetson nano build u-boot
 make -C "$UBOOR_SRC_DIR" O=build/p3450-0000 p3450-0000_defconfig
 make -C "$UBOOR_SRC_DIR" O=build/p3450-0000 -j "$(getconf _NPROCESSORS_ONLN)"
 
+# Jetson nano u-boot replace
 if ! [ -e BSP/t210/Linux_for_Tegra/bootloader/t210ref/p3450-0000/u-boot.bin_orig ]; then
   mv BSP/t210/Linux_for_Tegra/bootloader/t210ref/p3450-0000/u-boot.bin BSP/t210/Linux_for_Tegra/bootloader/t210ref/p3450-0000/u-boot.bin_orig
 fi
 cp "$UBOOR_SRC_DIR"/build/p3450-0000/u-boot.bin BSP/t210/Linux_for_Tegra/bootloader/t210ref/p3450-0000/u-boot.bin
+
+# Jetson nano dtb for u-boot replace
+if ! [ -e BSP/t210/Linux_for_Tegra/kernel/dtb/tegra210-p3448-0000-p3449-0000-b00.dtb_orig ]; then
+  mv BSP/t210/Linux_for_Tegra/kernel/dtb/tegra210-p3448-0000-p3449-0000-b00.dtb BSP/t210/Linux_for_Tegra/kernel/dtb/tegra210-p3448-0000-p3449-0000-b00.dtb_orig
+fi
+cp "$UBOOR_SRC_DIR"/build/p3450-0000/u-boot.dtb BSP/t210/Linux_for_Tegra/bootloader/t210ref/p3450-0000/tegra210-p3448-0000-p3449-0000-b00.dtb
